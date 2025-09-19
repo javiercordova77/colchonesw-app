@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS colores_variantes (
   color TEXT,
   codigo_color TEXT, -- código hexadecimal del color
   FOREIGN KEY (id_variante) REFERENCES variantes(id)
+  UNIQUE (id_variante, color, codigo_color)
 );
 
 -- ------------------------------------------------------------
@@ -51,31 +52,31 @@ CREATE TABLE IF NOT EXISTS colores_variantes (
 -- ------------------------------------------------------------
 
 -- Insertar proveedor de ejemplo
-INSERT OR IGNORE INTO proveedores (id, nombre, actividad)
-VALUES (
-  1,
-  'Chaide',
-  'Venta de Colchones, Almohadas e Implementos para el descanso'
-);
+INSERT OR IGNORE INTO proveedores (id, nombre, actividad) VALUES 
+  (1, 'Chaide', 'Venta de Colchones, Almohadas e Implementos para el descanso'),
+  (2, 'Lamitex', 'Venta de Colchones, Almohadas e Implementos para el descanso');
 
 -- Insertar categorías
-INSERT OR IGNORE INTO categorias (nombre) VALUES ('colchones');
-INSERT OR IGNORE INTO categorias (nombre) VALUES ('almohadas');
+INSERT OR IGNORE INTO categorias (nombre) VALUES 
+  ('colchones'),
+  ('almohadas');
 
 -- Insertar producto: Colchón Chaide Imperial
 INSERT OR IGNORE INTO productos (id_categoria, id_proveedor, descripcion, imagen, material)
-VALUES (
-  1, 1, 'Colchón Imperial Chaide', 'productos/colchones/chaideimperial.jpg', 'resortes'
-);
+VALUES 
+  (1, 1, 'Colchón Imperial Chaide', 'productos/colchones/chaideimperial.jpg', 'resortes'),
+  (2, 1, 'Almohada Memory Foam', 'productos/almohadas/chaidememory.jpg', 'espuma viscoelástica');
 
--- Variantes del colchón
+-- Variantes del colchón y almohada
 INSERT OR IGNORE INTO variantes (
   id_producto, codigo_variante, medida, precio_venta, precio_compra,
   cantidad_disponible, cantidad_minima, fecha_ingreso
 ) VALUES
   (1, 'CH-105x190-BLN', '105x190', 1300, 1000, 20, 5, '2025-06-24'),
   (1, 'CH-135x190x23-NGR', '135x190x23', 1500, 1200, 15, 3, '2025-06-24'),
-  (1, 'CH-135x190x27-BLN', '135x190x27', 1600, 1250, 10, 2, '2025-06-24');
+  (1, 'CH-135x190x27-BLN', '135x190x27', 1600, 1250, 10, 2, '2025-06-24'),
+  (2, 'ALM-50x70-BLN', '50x70', 500, 400, 30, 10, '2025-06-24'),
+  (2, 'ALM-60x80-NGR', '60x80', 700, 550, 25, 10, '2025-06-24');
 
 -- Colores para las variantes del colchón
 INSERT OR IGNORE INTO colores_variantes (id_variante, color, codigo_color) VALUES
@@ -86,19 +87,6 @@ INSERT OR IGNORE INTO colores_variantes (id_variante, color, codigo_color) VALUE
   (3, 'negro', '#000000'),
   (3, 'blanco', '#ffffff');
 
--- Insertar producto: Almohada Memory Foam
-INSERT OR IGNORE INTO productos (id_categoria, id_proveedor, descripcion, imagen, material)
-VALUES (
-  2, 1, 'Almohada Memory Foam', 'productos/almohadas/chaidememory.jpg', 'espuma viscoelástica'
-);
-
--- Variantes de almohada
-INSERT OR IGNORE INTO variantes (
-  id_producto, codigo_variante, medida, precio_venta, precio_compra,
-  cantidad_disponible, cantidad_minima, fecha_ingreso
-) VALUES
-  (2, 'ALM-50x70-BLN', '50x70', 500, 400, 30, 10, '2025-06-24'),
-  (2, 'ALM-60x80-NGR', '60x80', 700, 550, 25, 10, '2025-06-24');
 
 -- Colores para almohadas
 INSERT OR IGNORE INTO colores_variantes (id_variante, color, codigo_color) VALUES

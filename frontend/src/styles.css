@@ -1,0 +1,54 @@
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: 'Roboto', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app-bg {
+  min-height: 100vh;
+  background-image: url('/portada.jpg');
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+}
+
+/* centrado del contenido */
+.container {
+  padding: 16px;
+  padding-bottom: 90px; /* espacio para navbar inferior */
+}
+
+/* botón grande estilo imagen */
+.scan-button {
+  background-color: #0b7a4f;
+  color: white;
+  border-radius: 16px;
+  padding: 14px 28px;
+  font-size: 1.1rem;
+  text-transform: none;
+}
+
+/* cuadro blanco grande (vista previa) */
+.preview-box {
+  width: 320px;
+  height: 320px;
+  background: white;
+  border-radius: 20px;
+  margin: 0 auto;
+}
+
+/* logo centrado */
+.logo-center {
+  display: block;
+  margin: 32px auto 0;
+  max-width: 220px;
+}
+
+/* mobile adjustments */
+@media (max-width: 420px) {
+  .preview-box { width: 88vw; height: 60vw; }
+  .scan-button { width: 88vw; }
+}
