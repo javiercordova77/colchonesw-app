@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS productos (
   imagen TEXT,
   material TEXT,
   FOREIGN KEY (id_categoria) REFERENCES categorias(id),
-  FOREIGN KEY (id_proveedor) REFERENCES proveedores(id)
+  FOREIGN KEY (id_proveedor) REFERENCES proveedores(id),
+  UNIQUE (id_categoria, id_proveedor, descripcion)
 );
 
 -- Crear tabla de variantes de producto
@@ -72,11 +73,11 @@ INSERT OR IGNORE INTO variantes (
   id_producto, codigo_variante, medida, precio_venta, precio_compra,
   cantidad_disponible, cantidad_minima, fecha_ingreso
 ) VALUES
-  (1, 'CH-105x190-BLN', '105x190', 1300, 1000, 20, 5, '2025-06-24'),
-  (1, 'CH-135x190x23-NGR', '135x190x23', 1500, 1200, 15, 3, '2025-06-24'),
-  (1, 'CH-135x190x27-BLN', '135x190x27', 1600, 1250, 10, 2, '2025-06-24'),
-  (2, 'ALM-50x70-BLN', '50x70', 500, 400, 30, 10, '2025-06-24'),
-  (2, 'ALM-60x80-NGR', '60x80', 700, 550, 25, 10, '2025-06-24');
+  (1, 'CH-105x190-BLN', '105x190', 130, 100, 20, 5, '2025-06-24'),
+  (1, 'CH-135x190x23-NGR', '135x190x23', 150, 120, 15, 3, '2025-06-24'),
+  (1, 'CH-135x190x27-BLN', '135x190x27', 160, 125, 10, 2, '2025-06-24'),
+  (2, 'ALM-50x70-BLN', '50x70', 10, 7, 30, 10, '2025-06-24'),
+  (2, 'ALM-60x80-NGR', '60x80', 12, 9, 25, 10, '2025-06-24');
 
 -- Colores para las variantes del colchón
 INSERT OR IGNORE INTO colores_variantes (id_variante, color, codigo_color) VALUES

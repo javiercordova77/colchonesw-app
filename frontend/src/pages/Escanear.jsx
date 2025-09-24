@@ -26,7 +26,6 @@ export default function Escanear() {
     if (!scanning) return;
     setError(null);
 
-    // Espera a que el div esté en el DOM
     const qrDiv = document.getElementById("qr-reader");
     if (!qrDiv) return;
 
@@ -39,28 +38,33 @@ export default function Escanear() {
       { facingMode: "environment" },
       config,
       (decodedText) => {
+        console.log('QR capturado:', decodedText);
+        // Limpieza y navegación robusta
         html5QrcodeScanner.stop().then(() => {
           html5QrcodeScanner.clear().catch(()=>{});
           scannerRef.current = null;
           setScanning(false);
+          let codigo = decodedText;
           try {
             const u = new URL(decodedText);
             const parts = u.pathname.split('/');
-            const codigo = parts[parts.length - 1] || decodedText;
-            navigate(`/producto/${encodeURIComponent(codigo)}`);
+            codigo = parts[parts.length - 1] || decodedText;
+            console.log('QR transformado a codigo SI TOMO:', codigo);
           } catch (e) {
-            navigate(`/producto/${encodeURIComponent(decodedText)}`);
+            console.log('QR transformado a codigo NO TOMO:', codigo);
           }
+          navigate(`/producto/${encodeURIComponent(codigo)}`);
         }).catch(() => {
+          // Si el escáner ya está detenido, solo navega
+          scannerRef.current = null;
           setScanning(false);
+          let codigo = decodedText;
           try {
             const u = new URL(decodedText);
             const parts = u.pathname.split('/');
-            const codigo = parts[parts.length - 1] || decodedText;
-            navigate(`/producto/${encodeURIComponent(codigo)}`);
-          } catch (e) {
-            navigate(`/producto/${encodeURIComponent(decodedText)}`);
-          }
+            codigo = parts[parts.length - 1] || decodedText;
+          } catch (e) {}
+          navigate(`/producto/${encodeURIComponent(codigo)}`);
         });
       },
       (errorMessage) => {
@@ -109,19 +113,48 @@ export default function Escanear() {
 
         <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
           {!scanning ? (
-            <Button className="scan-button" startIcon={<CameraAltIcon />} onClick={handleScanClick}>
-              Escanear
+            <Button
+              className="scan-button"
+              startIcon={<CameraAltIcon sx={{ color: '#fff' }} />}
+              onClick={handleScanClick}
+              sx={{
+                backgroundColor: '#246440',
+                color: '#fff',
+                width: '80%',
+                px: 4,
+                py: 2,
+                fontWeight: 'bold',
+                fontSize: '0.8rem',
+                borderRadius: 2,
+                '&:hover': {
+                  backgroundColor: '#1e5233',
+                },
+              }}
+            >
+              ESCANEAR
             </Button>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <Button variant="outlined" sx={{ mt: 1 }} onClick={stopScanner}>Cancelar</Button>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+              <Button
+                variant="outlined"
+                sx={{
+                  mt: 1,
+                  width: '80%',
+                  py: 2,
+                  fontSize: '0.8rem',
+                  borderRadius: 2,
+                }}
+                onClick={stopScanner}
+              >
+                Cancelar
+              </Button>
               {error && <Typography color="error">{error}</Typography>}
             </Box>
           )}
         </Box>
 
         <Box sx={{ mt: 6, textAlign: 'center' }}>
-          <img src="/logo.png" alt="logo" className="logo-center" />
+          <img src="/logo.png" alt="logo" style={{ width: 320, height: 'auto' }} />
         </Box>
       </Box>
     </Box>

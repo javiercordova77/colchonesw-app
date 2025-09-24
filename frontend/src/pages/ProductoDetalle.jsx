@@ -10,17 +10,18 @@ export default function ProductDetail() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
-    fetchProductoPorCodigo(codigo)
-      .then((data) => {
-        setProducto(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError('No se pudo obtener el producto');
-        setLoading(false);
-      });
+  setLoading(true);
+  fetchProductoPorCodigo(codigo)
+    .then((data) => {
+      console.log('Datos recibidos:', data); // <-- Agrega este log
+      setProducto(data);
+      setLoading(false);
+    })
+    .catch((err) => {
+      console.error(err);
+      setError('No se pudo obtener el producto');
+      setLoading(false);
+    });
   }, [codigo]);
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}><CircularProgress /></Box>;
@@ -37,14 +38,13 @@ export default function ProductDetail() {
             <img src={imgSrc} alt={producto.descripcion} style={{ width: '100%', borderRadius: 8 }} />
           </Grid>
           <Grid item xs={12} sm={7}>
-            <Typography variant="h6">{producto.descripcion}</Typography>
-            <Typography variant="subtitle2" color="text.secondary">{producto.categoria}</Typography>
-            <Typography sx={{ mt: 1 }}><strong>Medida:</strong> {producto.medida}</Typography>
-            <Typography><strong>Material:</strong> {producto.material}</Typography>
-            <Typography sx={{ mt: 1 }}><strong>Precio venta:</strong> {producto.precio_venta}</Typography>
-            <Typography><strong>Precio compra:</strong> {producto.precio_compra}</Typography>
-            <Typography><strong>Cantidad disponible:</strong> {producto.cantidad_disponible}</Typography>
-
+            <Typography variant="h6">{producto.descripcion ?? 'Sin descripción'}</Typography>
+            <Typography variant="subtitle2" color="text.secondary">{producto.categoria ?? 'Sin categoría'}</Typography>
+            <Typography sx={{ mt: 1 }}><strong>Medida:</strong> {producto.medida ?? '-'}</Typography>
+            <Typography><strong>Material:</strong> {producto.material ?? '-'}</Typography>
+            <Typography sx={{ mt: 1 }}><strong>Precio venta:</strong> {producto.precio_venta ?? '-'}</Typography>
+            <Typography><strong>Precio compra:</strong> {producto.precio_compra ?? '-'}</Typography>
+            <Typography><strong>Cantidad disponible:</strong> {producto.cantidad_disponible ?? '-'}</Typography>
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2">Colores</Typography>
               <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
