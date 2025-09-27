@@ -10,8 +10,8 @@ export default defineConfig({
     strictPort: false,
     allowedHosts: ["localhost"],
     https: {
-      key: fs.readFileSync('./cert/keyXentra.pem'),
-      cert: fs.readFileSync('./cert/certXentra.pem'),
+      key: fs.readFileSync('../cert/keyXentra.pem'),
+      cert: fs.readFileSync('../cert/certXentra.pem'),
     }
   }
 });

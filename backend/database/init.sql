@@ -65,7 +65,7 @@ INSERT OR IGNORE INTO categorias (nombre) VALUES
 -- Insertar producto: Colchón Chaide Imperial
 INSERT OR IGNORE INTO productos (id_categoria, id_proveedor, descripcion, imagen, material)
 VALUES 
-  (1, 1, 'Colchón Imperial Chaide', 'productos/colchones/chaideimperial.jpg', 'resortes'),
+  (1, 1, 'Colchón Imperial', 'productos/colchones/chaideimperial.jpg', 'resortes'),
   (2, 1, 'Almohada Memory Foam', 'productos/almohadas/chaidememory.jpg', 'espuma viscoelástica');
 
 -- Variantes del colchón y almohada
@@ -92,6 +92,6 @@ INSERT OR IGNORE INTO colores_variantes (id_variante, color, codigo_color) VALUE
 -- Colores para almohadas
 INSERT OR IGNORE INTO colores_variantes (id_variante, color, codigo_color) VALUES
   (4, 'blanco', '#ffffff'),
-  (4, 'negro', '#000000'),
+  (4, 'beige', '#F5F5DC'),
   (5, 'blanco', '#ffffff'),
-  (5, 'negro', '#000000');
+  (5, 'beige', '#F5F5DC');

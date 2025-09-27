@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
@@ -35,7 +36,13 @@ app.use('/images', express.static(path.join(__dirname, 'images')));
 const productosRoutes = require('./routes/productos');
 app.use('/api/productos', productosRoutes(db)); // ← Le pasamos la DB
 
-// Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`Servidor iniciado en http://localhost:${PORT}`);
+// Configuración de certificados SSL
+const sslOptions = {
+  key: fs.readFileSync(path.join(__dirname, '../cert/keyXentra.pem')),
+  cert: fs.readFileSync(path.join(__dirname, '../cert/certXentra.pem')),
+};
+
+// Iniciar servidor HTTPS
+https.createServer(sslOptions, app).listen(PORT, () => {
+  console.log(`Servidor HTTPS iniciado en https://192.168.10.104:${PORT}`);
 });
