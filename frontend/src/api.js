@@ -6,7 +6,7 @@ export const BASE_URL = 'https://192.168.10.104:3001';
 function sanitizeCodigo(raw) {
   return (raw || '')
     .replace(/[\r\n\t]/g, '')
-    .replace(/^"+|"+$/g, '')   // quita comillas exteriores
+    .replace(/^"+|"+$/g, '')
     .trim();
 }
 
@@ -22,13 +22,11 @@ export async function fetchProductoPorCodigo(codigoVariante) {
   try {
     const res = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      }
+      headers: { Accept: 'application/json' }
     });
     console.debug('[API] HTTP status:', res.status);
     if (!res.ok) {
-      const text = await res.text().catch(()=>'(no body)');
+      const text = await res.text().catch(() => '(no body)');
       console.error('[API] Respuesta no OK. Body:', text);
       throw new Error('HTTP ' + res.status);
     }
@@ -37,8 +35,6 @@ export async function fetchProductoPorCodigo(codigoVariante) {
     return data;
   } catch (err) {
     console.error('[API] Network / Fetch error primario:', err);
-
-    // Fallback rápido: reintentar una vez después de 150ms
     await new Promise(r => setTimeout(r, 150));
     try {
       console.debug('[API] Reintento fetch:', url);
@@ -52,4 +48,28 @@ export async function fetchProductoPorCodigo(codigoVariante) {
       throw err2;
     }
   }
+}
+
+// === NUEVO: LISTADO COMPLETO DE PRODUCTOS ===
+export async function fetchProductosListado() {
+  const url = `${BASE_URL}/api/productos`; // Debe devolver un array
+  console.debug('[API] fetchProductosListado URL:', url);
+  let res;
+  try {
+    res = await fetch(url, { headers: { Accept: 'application/json' } });
+  } catch (e) {
+    console.error('[API] Error de red listado:', e);
+    throw e;
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '(no body)');
+    console.error('[API] Listado HTTP no OK:', res.status, text);
+    throw new Error('HTTP ' + res.status);
+  }
+  const data = await res.json();
+  if (!Array.isArray(data)) {
+    console.warn('[API] Respuesta listado no es array, envolviendo en array');
+    return [];
+  }
+  return data;
 }

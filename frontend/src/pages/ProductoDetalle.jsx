@@ -1,19 +1,14 @@
-// src/pages/ProductoDetalle.jsx
+// ProductoDetalle.jsx (UI refinada)
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchProductoPorCodigo, BASE_URL } from '../api';
 import {
   Box,
   Typography,
-  Paper,
   CircularProgress,
   Tabs,
   Tab,
   IconButton,
-  Table,
-  TableBody,
-  TableRow,
-  TableCell,
   Divider,
   Chip,
   Tooltip,
@@ -44,21 +39,17 @@ export default function ProductoDetalle() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    console.debug('[ProductoDetalle] Param codigo recibido:', codigo);
     let cancel = false;
     setLoading(true);
     setError(null);
-
     fetchProductoPorCodigo(codigo)
       .then(data => {
         if (cancel) return;
-        console.debug('[ProductoDetalle] Producto OK:', data);
         setProducto(data);
         setLoading(false);
       })
       .catch(err => {
         if (cancel) return;
-        console.error('[ProductoDetalle] Error fetchProductoPorCodigo (final):', err);
         setError(
           err.message === 'Network Error'
             ? 'No se pudo conectar al servidor.'
@@ -66,7 +57,6 @@ export default function ProductoDetalle() {
         );
         setLoading(false);
       });
-
     return () => { cancel = true; };
   }, [codigo]);
 
@@ -75,9 +65,7 @@ export default function ProductoDetalle() {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
-    } catch (e) {
-      console.warn('Copy failed', e);
-    }
+    } catch {}
   };
 
   if (loading)
@@ -96,46 +84,45 @@ export default function ProductoDetalle() {
 
   if (!producto) return null;
 
-  const imgSrc = producto.imagen ? `${BASE_URL}/images/${producto.imagen}` : '/logo.jpg';
+  const imgSrc = producto.imagen
+    ? `${BASE_URL}/images/${producto.imagen}`
+    : '/logo.png';
 
   return (
-    <Box className="app-bg">
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: '#f4f5f6', // gris claro base
+        pb: 'calc(70px + env(safe-area-inset-bottom))',
+        display: 'flex',
+        justifyContent: 'center'
+      }}
+    >
       <Box
-        className="container"
         sx={{
-          // mt: 2,  // eliminado: el wrapper global ya reserva espacio bajo el NavbarTop
-          pb: 2,    // antes: 'calc(80px + env(safe-area-inset-bottom))' (duplicaba el padding inferior global)
-          display: 'flex',
-          justifyContent: 'center',
+          width: '100%',
+          maxWidth: 760,
+          px: { xs: 2, sm: 3 },
+          pt: { xs: 1.5, sm: 2.5 },
         }}
       >
-        <Paper
-          elevation={6}
+        {/* Contenedor superior (imagen + nombre + categoría) */}
+        <Box
           sx={{
-            width: '100%',
-            maxWidth: 680,
-            borderRadius: 3,
+            position: 'relative',
+            borderRadius: 4,
+            background: 'linear-gradient(160deg,#0b7a4f 0%, #0a643a 100%)',
+            color: '#fff',
             overflow: 'hidden',
-            // height: { xs: '86vh', sm: '78vh', md: '72vh' }, // si causa scroll incómodo, comenta esta línea
+            mb: 2.5,
+            minHeight: { xs: 230, sm: 260 },
             display: 'flex',
             flexDirection: 'column',
+            justifyContent: 'center',
+            boxShadow: '0 8px 26px -8px rgba(0,0,0,0.28), 0 2px 6px rgba(0,0,0,0.18)'
           }}
         >
-          {/* Sección superior: 30% */}
-          <Box
-            sx={{
-              flex: '0 0 30%', // ocupa aproximadamente 30% del alto del Paper
-              background: 'linear-gradient(180deg,#0b7a4f 0%, #0a703f 100%)',
-              color: '#fff',
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              px: { xs: 2, sm: 3 },
-            }}
-          >
-            {/* Botón Volver (flotante) */}
+            {/* Botón volver */}
             <IconButton
               aria-label="volver"
               onClick={() => navigate(-1)}
@@ -143,211 +130,298 @@ export default function ProductoDetalle() {
                 position: 'absolute',
                 left: 12,
                 top: 12,
-                background: 'rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.15)',
                 color: '#fff',
-                '&:hover': { background: 'rgba(255,255,255,0.18)' },
+                '&:hover': { background: 'rgba(255,255,255,0.25)' },
               }}
+              size="small"
             >
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
 
-            {/* Imagen centrada */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-              <Fade in timeout={400}>
-                <Box
-                  component="img"
-                  src={imgSrc}
-                  alt={producto.descripcion}
-                  sx={{
-                    maxWidth: { xs: '70%', sm: '60%' },
-                    maxHeight: { xs: 110, sm: 140, md: 160 },
-                    objectFit: 'contain',
-                    filter: 'drop-shadow(0 8px 22px rgba(0,0,0,0.25))',
-                  }}
-                />
-              </Fade>
-            </Box>
+            {/* Imagen */}
+            <Fade in timeout={400}>
+              <Box
+                component="img"
+                src={imgSrc}
+                alt={producto.descripcion}
+                sx={{
+                  maxWidth: { xs: '68%', sm: '50%' },
+                  maxHeight: { xs: 140, sm: 170 },
+                  mx: 'auto',
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 10px 25px rgba(0,0,0,0.35))'
+                }}
+              />
+            </Fade>
 
-            {/* Nombre y categoría en la parte inferior del área verde */}
-            <Box sx={{ position: 'absolute', left: 20, right: 20, bottom: 16 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#fff' }}>
+            {/* Info textual inferior */}
+            <Box
+              sx={{
+                position: 'absolute',
+                left: 20,
+                right: 20,
+                bottom: 18
+              }}
+            >
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 800, letterSpacing: 0.3, lineHeight: 1.1 }}
+              >
                 {producto.descripcion ?? 'Sin descripción'}
               </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.95)' }}>
+              <Typography
+                variant="body2"
+                sx={{ opacity: 0.92, mt: 0.3 }}
+              >
                 {producto.categoria ?? ''}
               </Typography>
             </Box>
-          </Box>
+        </Box>
 
-          {/* Sección inferior: 70% (tabs y contenido) */}
-          <Box
+        {/* Tabs */}
+        <Box
+          sx={{
+            mb: 1,
+            px: 0.5,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end'
+          }}
+        >
+          <Tabs
+            value={tab}
+            onChange={(e, v) => setTab(v)}
             sx={{
-              flex: '1 1 70%',
-              background: '#fff',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
+              minHeight: 42,
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 700,
+                letterSpacing: 0.3,
+                minHeight: 42
+              },
+              '& .MuiTabs-flexContainer': { gap: { xs: 1, sm: 2 } },
+              '& .MuiTabs-indicator': {
+                height: 3,
+                borderRadius: 3,
+                background: '#0b7a4f'
+              }
             }}
           >
-            {/* Tabs header */}
-            <Box sx={{ px: 1.5, pt: 1 }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Tabs
-                  value={tab}
-                  onChange={(e, v) => setTab(v)}
-                  variant="standard"
+            <Tab label="Detalles" />
+            <Tab label="Colores & Proveedor" />
+          </Tabs>
+        </Box>
+
+        <Divider sx={{ mb: 1.5 }} />
+
+        {/* Contenido principal (sin panel visible) */}
+        <Box sx={{}}>
+          {/* Tab 0: Detalles */}
+          <TabPanel value={tab} index={0}>
+            <Typography
+              variant="subtitle1"
+              sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}
+            >
+              Datos del Producto
+            </Typography>
+
+            {/* Lista de atributos (estilo “plano” sobre fondo) */}
+            <Box
+              sx={{
+                borderRadius: 2,
+                overflow: 'hidden',
+                background: 'transparent',
+                mb: 2
+              }}
+            >
+              {[
+                {
+                  label: 'Medida',
+                  value: producto.medida ?? '-'
+                },
+                {
+                  label: 'Precio Venta',
+                  value: showVenta
+                    ? `$${Number(producto.precio_venta ?? 0).toFixed(2)}`
+                    : '$ *.* *',
+                  extraIcon: (
+                    <Tooltip
+                      title={showVenta ? 'Ocultar precio' : 'Mostrar precio'}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowVenta(s => !s)}
+                      >
+                        {showVenta
+                          ? <VisibilityIcon fontSize="small" />
+                          : <VisibilityOffIcon fontSize="small" />}
+                      </IconButton>
+                    </Tooltip>
+                  )
+                },
+                {
+                  label: 'Precio Compra',
+                  value: showCompra
+                    ? `$${Number(producto.precio_compra ?? 0).toFixed(2)}`
+                    : '$ *.* *',
+                  extraIcon: (
+                    <Tooltip
+                      title={showCompra ? 'Ocultar precio compra' : 'Mostrar precio compra'}
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowCompra(s => !s)}
+                      >
+                        {showCompra
+                          ? <VisibilityIcon fontSize="small" />
+                          : <VisibilityOffIcon fontSize="small" />}
+                      </IconButton>
+                    </Tooltip>
+                  )
+                },
+                {
+                  label: 'Stock',
+                  value: producto.cantidad_disponible ?? 0
+                },
+                {
+                  label: 'SKU / Código',
+                  value: producto.codigo_variante ?? codigo ?? '-',
+                  extraIcon: (
+                    <Tooltip title={copied ? 'Copiado' : 'Copiar SKU'}>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          handleCopySKU(producto.codigo_variante ?? codigo ?? '')
+                        }
+                      >
+                        {copied
+                          ? <DoneIcon fontSize="small" />
+                          : <ContentCopyIcon fontSize="small" />}
+                      </IconButton>
+                    </Tooltip>
+                  )
+                }
+              ].map((row, idx, arr) => (
+                <Box
+                  key={row.label}
                   sx={{
-                    '& .MuiTabs-indicator': { backgroundColor: '#0b7a4f' },
-                    '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minWidth: 120 },
+                    display: 'flex',
+                    alignItems: 'center',
+                    py: 1.15,
+                    px: 1.2,
+                    gap: 1,
+                    borderBottom: idx === arr.length - 1
+                      ? 'none'
+                      : '1px solid rgba(0,0,0,0.06)',
+                    '&:hover': {
+                      background: 'rgba(0,0,0,0.025)'
+                    }
                   }}
                 >
-                  <Tab label="Detalles" />
-                  <Tab label="Colores & Proveedor" />
-                </Tabs>
-              </Stack>
-              <Divider sx={{ mt: 1 }} />
-            </Box>
-
-            {/* Contenido con scroll interno si hace falta */}
-            <Box sx={{ p: 2, overflowY: 'auto' }}>
-              {/* Detalles */}
-              <TabPanel value={tab} index={0}>
-                <Typography variant="h6" sx={{ mb: 1.2, fontWeight: 700 }}>
-                  Datos Informativos
-                </Typography>
-
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    maxWidth: 560,
-                    mx: 'auto',
-                    background: '#fff',
-                  }}
-                >
-                  <Table
-                    size="small"
+                  <Typography
                     sx={{
-                      '& .MuiTableCell-root': { py: 1.25, px: 2 },
+                      flex: 1,
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: 'text.secondary'
                     }}
                   >
-                    <TableBody>
-                      <TableRow>
-                        <TableCell sx={{ width: '46%', fontWeight: 500, color: 'text.secondary' }}>Medida</TableCell>
-                        <TableCell align="right" className="data-nums" sx={{ fontWeight: 700 }}>
-                          {producto.medida ?? '-'}
-                        </TableCell>
-                      </TableRow>
+                    {row.label}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontWeight: 700,
+                      letterSpacing: 0.4,
+                      fontSize: 14,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5
+                    }}
+                  >
+                    {row.value}
+                  </Typography>
+                  {row.extraIcon}
+                </Box>
+              ))}
+            </Box>
+          </TabPanel>
 
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>Precio Venta</TableCell>
-                        <TableCell
-                          align="right"
-                          className="data-nums"
-                          sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}
-                        >
-                          {showVenta ? (
-                            <Typography sx={{ fontWeight: 900, fontSize: '1rem' }} className="data-nums">
-                              ${Number(producto.precio_venta ?? 0).toFixed(2)}
-                            </Typography>
-                          ) : (
-                            <Typography sx={{ fontWeight: 900 }}>$ *.* *</Typography>
-                          )}
-                          <Tooltip title={showVenta ? 'Ocultar precio' : 'Mostrar precio'}>
-                            <IconButton size="small" onClick={() => setShowVenta(s => !s)}>
-                              {showVenta ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
+            {/* Tab 1: Colores & Proveedor */}
+            <TabPanel value={tab} index={1}>
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}
+              >
+                Colores
+              </Typography>
 
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>Precio Compra</TableCell>
-                        <TableCell
-                          align="right"
-                          className="data-nums"
-                          sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}
-                        >
-                          {showCompra ? (
-                            <Typography sx={{ fontWeight: 800 }} className="data-nums">
-                              ${Number(producto.precio_compra ?? 0).toFixed(2)}
-                            </Typography>
-                          ) : (
-                            <Typography sx={{ fontWeight: 800 }}>$ *.* *</Typography>
-                          )}
-                          <Tooltip title={showCompra ? 'Ocultar precio compra' : 'Mostrar precio compra'}>
-                            <IconButton size="small" onClick={() => setShowCompra(s => !s)}>
-                              {showCompra ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>Stock</TableCell>
-                        <TableCell align="right" className="data-nums">
-                          <Typography sx={{ fontWeight: 800 }} className="data-nums">
-                            {producto.cantidad_disponible ?? 0}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 500, color: 'text.secondary' }}>SKU / Código</TableCell>
-                        <TableCell align="right" sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1 }}>
-                          <Typography sx={{ letterSpacing: 1 }}>{producto.codigo_variante ?? codigo ?? '-'}</Typography>
-                          <Tooltip title={copied ? 'Copiado' : 'Copiar SKU'}>
-                            <IconButton size="small" onClick={() => handleCopySKU(producto.codigo_variante ?? codigo ?? '')}>
-                              {copied ? <DoneIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </Paper>
-              </TabPanel>
-
-              {/* Colores & Proveedor */}
-              <TabPanel value={tab} index={1}>
-                <Typography variant="h6" sx={{ mb: 1.2, fontWeight: 700 }}>
-                  Colores
-                </Typography>
-
-                <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                  {producto.colores && producto.colores.length ? (
-                    producto.colores.map((c, idx) => (
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 1,
+                  flexWrap: 'wrap',
+                  mb: 2,
+                  minHeight: 40
+                }}
+              >
+                {producto.colores && producto.colores.length
+                  ? producto.colores.map((c, i) => (
                       <Chip
-                        key={idx}
+                        key={i}
                         label={c.color}
+                        size="small"
                         sx={{
                           backgroundColor: c.codigo_color || '#eee',
-                          color: c.codigo_color && c.codigo_color.toLowerCase() === '#000000' ? '#fff' : '#000',
+                          color:
+                            c.codigo_color &&
+                            c.codigo_color.toLowerCase() === '#000000'
+                              ? '#fff'
+                              : '#000',
                           borderRadius: 2,
-                          px: 1.5,
                           fontWeight: 600,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.18)'
                         }}
                       />
                     ))
-                  ) : (
-                    <Typography color="text.secondary">Sin colores</Typography>
+                  : (
+                    <Typography color="text.secondary">
+                      Sin colores
+                    </Typography>
                   )}
-                </Box>
+              </Box>
 
-                <Divider sx={{ my: 2 }} />
+              <Divider sx={{ mb: 2 }} />
 
-                <Typography variant="h6" sx={{ mb: 1.2, fontWeight: 700 }}>
-                  Proveedor
+              <Typography
+                variant="subtitle1"
+                sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}
+              >
+                Proveedor
+              </Typography>
+
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  p: 1.6,
+                  background: 'linear-gradient(145deg,#ffffff 0%, #fafafa 100%)',
+                  border: '1px solid rgba(0,0,0,0.06)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+                }}
+              >
+                <Typography sx={{ fontWeight: 800, mb: 0.3 }}>
+                  {producto.proveedor?.nombre ?? 'Sin proveedor'}
                 </Typography>
-                <Paper variant="outlined" sx={{ mt: 1, p: 2, borderRadius: 2 }}>
-                  <Typography sx={{ fontWeight: 800 }}>{producto.proveedor?.nombre ?? 'Sin proveedor'}</Typography>
-                  <Typography variant="body2" color="text.secondary">{producto.proveedor?.actividad ?? ''}</Typography>
-                </Paper>
-              </TabPanel>
-            </Box>
-          </Box>
-        </Paper>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ lineHeight: 1.35 }}
+                >
+                  {producto.proveedor?.actividad ?? ''}
+                </Typography>
+              </Box>
+            </TabPanel>
+        </Box>
       </Box>
     </Box>
   );

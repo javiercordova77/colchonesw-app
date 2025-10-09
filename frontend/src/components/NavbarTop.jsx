@@ -1,41 +1,41 @@
 import React from 'react';
-import { AppBar, Toolbar, Box, Typography } from '@mui/material';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { AppBar, Toolbar, Typography, Box } from '@mui/material';
+import { useLocation } from 'react-router-dom';
 
-export default function NavbarTop({
-  title = 'COLCHONES WILSON',
-  subtitle = 'Propietario'
-}) {
+export default function NavbarTop() {
+  const { pathname } = useLocation();
+
+  const map = [
+    { test: p => p.startsWith('/inventario'), title: 'Inventario', subtitle: 'Colchones Wilson' },
+    { test: p => p.startsWith('/producto/'), title: 'Producto', subtitle: 'Detalle' },
+    { test: p => p.startsWith('/config'), title: 'Configuración', subtitle: 'Preferencias' },
+    { test: p => p.startsWith('/qr'), title: 'QR', subtitle: 'Generador' },
+    { test: p => p === '/', title: 'Escanear', subtitle: 'Lector' }
+  ];
+  const found = map.find(m => m.test(pathname));
+  const title = found?.title || 'COLCHONES WILSON';
+  const subtitle = found?.subtitle || 'Propietario';
+
   return (
     <AppBar
       position="fixed"
-      elevation={0}
+      elevation={1}
+      color="default"
       sx={{
-        background: 'var(--navbar-top-bg, #EAF4F0)',
-        color: 'var(--navbar-top-fg, #246440)',
-        pt: 'env(safe-area-inset-top)',
-        borderBottom: '1px solid rgba(36,100,64,0.15)'
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        background: 'rgba(255,255,255,0.85)'
       }}
     >
-      <Toolbar variant="regular" sx={{ minHeight: 56, px: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AccountCircleIcon sx={{ fontSize: 32, color: 'inherit' }} />
-          <Box sx={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: 800, letterSpacing: 0.3, lineHeight: 1 }}
-            >
-              {title}
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{ opacity: 0.9, lineHeight: 1, mt: '2px', letterSpacing: 0.2 }}
-            >
-              {subtitle}
-            </Typography>
-          </Box>
+      <Toolbar sx={{ minHeight: 56, display: 'flex', justifyContent: 'space-between' }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1 }}>
+            {title}
+          </Typography>
+          <Typography variant="caption" sx={{ opacity: 0.72 }}>
+            {subtitle}
+          </Typography>
         </Box>
-        <Box sx={{ flex: 1 }} />
       </Toolbar>
     </AppBar>
   );

@@ -1,0 +1,33 @@
+Aquí los comandos (modo simple autofirmado) para regenerar keyXentra.pem, certXentra.pem y certXentra.cer usando san.cnf (un solo certificado para backend y frontend):
+
+Ir a la carpeta cert
+cd /Users/javiercordova/Documents/GitHub/colchonesw-app/cert
+
+(Opcional) Borrar anteriores
+rm -f keyXentra.pem certXentra.pem certXentra.cer
+
+Generar clave privada
+openssl genrsa -out keyXentra.pem 2048
+
+Crear CSR usando san.cnf
+openssl req -new -key keyXentra.pem -out server.csr -config san.cnf
+
+Firmar (certificado autofirmado 365 días con SAN)
+openssl x509 -req -in server.csr -signkey keyXentra.pem -out certXentra.pem -days 365 -sha256 -extensions v3_req -extfile san.cnf
+
+Exportar a formato .cer (DER) para instalar en dispositivos
+openssl x509 -in certXentra.pem -out certXentra.cer -outform der
+
+Limpiar CSR
+rm server.csr
+
+Verificar SAN y fechas
+openssl x509 -in certXentra.pem -noout -text | grep -A1 "Subject Alternative Name"
+openssl x509 -in certXentra.pem -noout -dates
+openssl x509 -in certXentra.pem -noout -fingerprint -sha256
+
+Luego:
+
+Usar keyXentra.pem + certXentra.pem en backend (puerto 3001) y Vite (puerto 5174).
+Instalar certXentra.cer (Mac: “Confiar siempre”; iPhone: perfil y confiar).
+Listo. Si luego quieres versión con CA raíz, pedirlo.
