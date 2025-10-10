@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchProductoPorCodigo, BASE_URL } from '../api';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
   Box,
   Typography,
@@ -88,11 +89,19 @@ export default function ProductoDetalle() {
     ? `${BASE_URL}/images/${producto.imagen}`
     : '/logo.png';
 
+  // NUEVO: stock total (sumado por backend desde ubicaciones). Fallback a campo antiguo.
+  const totalStock = producto?.stock?.total?.cantidad_disponible
+    ?? producto?.cantidad_disponible
+    ?? 0;
+
+  // NUEVO: SKU para el QR
+  const sku = producto?.codigo_variante ?? codigo ?? '';
+
   return (
     <Box
       sx={{
         minHeight: '100vh',
-        background: '#f4f5f6', // gris claro base
+        background: '#f4f5f6',
         pb: 'calc(70px + env(safe-area-inset-bottom))',
         display: 'flex',
         justifyContent: 'center'
@@ -208,16 +217,16 @@ export default function ProductoDetalle() {
               }
             }}
           >
+            <Tab label="General" />
             <Tab label="Detalles" />
-            <Tab label="Colores & Proveedor" />
           </Tabs>
         </Box>
 
         <Divider sx={{ mb: 1.5 }} />
 
-        {/* Contenido principal (sin panel visible) */}
-        <Box sx={{}}>
-          {/* Tab 0: Detalles */}
+        {/* Contenido principal */}
+        <Box>
+          {/* Tab 0: General */}
           <TabPanel value={tab} index={0}>
             <Typography
               variant="subtitle1"
@@ -226,7 +235,7 @@ export default function ProductoDetalle() {
               Datos del Producto
             </Typography>
 
-            {/* Lista de atributos (estilo “plano” sobre fondo) */}
+            {/* Lista de atributos */}
             <Box
               sx={{
                 borderRadius: 2,
@@ -246,16 +255,9 @@ export default function ProductoDetalle() {
                     ? `$${Number(producto.precio_venta ?? 0).toFixed(2)}`
                     : '$ *.* *',
                   extraIcon: (
-                    <Tooltip
-                      title={showVenta ? 'Ocultar precio' : 'Mostrar precio'}
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={() => setShowVenta(s => !s)}
-                      >
-                        {showVenta
-                          ? <VisibilityIcon fontSize="small" />
-                          : <VisibilityOffIcon fontSize="small" />}
+                    <Tooltip title={showVenta ? 'Ocultar precio' : 'Mostrar precio'}>
+                      <IconButton size="small" onClick={() => setShowVenta(s => !s)}>
+                        {showVenta ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
                       </IconButton>
                     </Tooltip>
                   )
@@ -266,23 +268,17 @@ export default function ProductoDetalle() {
                     ? `$${Number(producto.precio_compra ?? 0).toFixed(2)}`
                     : '$ *.* *',
                   extraIcon: (
-                    <Tooltip
-                      title={showCompra ? 'Ocultar precio compra' : 'Mostrar precio compra'}
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={() => setShowCompra(s => !s)}
-                      >
-                        {showCompra
-                          ? <VisibilityIcon fontSize="small" />
-                          : <VisibilityOffIcon fontSize="small" />}
+                    <Tooltip title={showCompra ? 'Ocultar precio compra' : 'Mostrar precio compra'}>
+                      <IconButton size="small" onClick={() => setShowCompra(s => !s)}>
+                        {showCompra ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
                       </IconButton>
                     </Tooltip>
                   )
                 },
                 {
+                  // CAMBIO: usar stock total agregado por backend
                   label: 'Stock',
-                  value: producto.cantidad_disponible ?? 0
+                  value: totalStock
                 },
                 {
                   label: 'SKU / Código',
@@ -291,13 +287,9 @@ export default function ProductoDetalle() {
                     <Tooltip title={copied ? 'Copiado' : 'Copiar SKU'}>
                       <IconButton
                         size="small"
-                        onClick={() =>
-                          handleCopySKU(producto.codigo_variante ?? codigo ?? '')
-                        }
+                        onClick={() => handleCopySKU(producto.codigo_variante ?? codigo ?? '')}
                       >
-                        {copied
-                          ? <DoneIcon fontSize="small" />
-                          : <ContentCopyIcon fontSize="small" />}
+                        {copied ? <DoneIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
                       </IconButton>
                     </Tooltip>
                   )
@@ -311,34 +303,14 @@ export default function ProductoDetalle() {
                     py: 1.15,
                     px: 1.2,
                     gap: 1,
-                    borderBottom: idx === arr.length - 1
-                      ? 'none'
-                      : '1px solid rgba(0,0,0,0.06)',
-                    '&:hover': {
-                      background: 'rgba(0,0,0,0.025)'
-                    }
+                    borderBottom: idx === arr.length - 1 ? 'none' : '1px solid rgba(0,0,0,0.06)',
+                    '&:hover': { background: 'rgba(0,0,0,0.025)' }
                   }}
                 >
-                  <Typography
-                    sx={{
-                      flex: 1,
-                      fontSize: 14,
-                      fontWeight: 500,
-                      color: 'text.secondary'
-                    }}
-                  >
+                  <Typography sx={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'text.secondary' }}>
                     {row.label}
                   </Typography>
-                  <Typography
-                    sx={{
-                      fontWeight: 700,
-                      letterSpacing: 0.4,
-                      fontSize: 14,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5
-                    }}
-                  >
+                  <Typography sx={{ fontWeight: 700, letterSpacing: 0.4, fontSize: 14, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     {row.value}
                   </Typography>
                   {row.extraIcon}
@@ -347,80 +319,148 @@ export default function ProductoDetalle() {
             </Box>
           </TabPanel>
 
-            {/* Tab 1: Colores & Proveedor */}
-            <TabPanel value={tab} index={1}>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}
-              >
-                Colores
-              </Typography>
+          {/* Tab 1: Detalles */}
+          <TabPanel value={tab} index={1}>
+            {/* 1) Stock Detallado (caja destacada) */}
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}>
+              Stock Detallado
+            </Typography>
 
-              <Box
-                sx={{
-                  display: 'flex',
-                  gap: 1,
-                  flexWrap: 'wrap',
-                  mb: 2,
-                  minHeight: 40
-                }}
-              >
-                {producto.colores && producto.colores.length
-                  ? producto.colores.map((c, i) => (
-                      <Chip
-                        key={i}
-                        label={c.color}
-                        size="small"
-                        sx={{
-                          backgroundColor: c.codigo_color || '#eee',
-                          color:
-                            c.codigo_color &&
-                            c.codigo_color.toLowerCase() === '#000000'
-                              ? '#fff'
-                              : '#000',
-                          borderRadius: 2,
-                          fontWeight: 600,
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.18)'
-                        }}
-                      />
-                    ))
-                  : (
-                    <Typography color="text.secondary">
-                      Sin colores
-                    </Typography>
-                  )}
-              </Box>
-
-              <Divider sx={{ mb: 2 }} />
-
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}
-              >
-                Proveedor
-              </Typography>
-
-              <Box
-                sx={{
-                  borderRadius: 2,
-                  p: 1.6,
-                  background: 'linear-gradient(145deg,#ffffff 0%, #fafafa 100%)',
-                  border: '1px solid rgba(0,0,0,0.06)',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
-                }}
-              >
-                <Typography sx={{ fontWeight: 800, mb: 0.3 }}>
-                  {producto.proveedor?.nombre ?? 'Sin proveedor'}
+            <Box
+              sx={{
+                borderRadius: 3,
+                p: 1.2,
+                mb: 2,
+                background: 'linear-gradient(180deg,#ffffff 0%, #f9fafb 100%)',
+                border: '1px solid rgba(0,0,0,0.06)',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.06)'
+              }}
+            >
+              {producto?.stock?.ubicaciones && producto.stock.ubicaciones.length > 0 ? (
+                <Box sx={{ borderRadius: 2, overflow: 'hidden', background: 'transparent' }}>
+                  {producto.stock.ubicaciones.map((u, idx, arr) => (
+                    <Box
+                      key={u.id_ubicacion || idx}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        py: 1.05,
+                        px: 1.0,
+                        borderBottom: idx === arr.length - 1 ? 'none' : '1px solid rgba(0,0,0,0.06)',
+                        '&:hover': { background: 'rgba(0,0,0,0.025)' }
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                          {u.ubicacion}
+                        </Typography>
+                        {u.ubicacion_descripcion ? (
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {u.ubicacion_descripcion}
+                          </Typography>
+                        ) : null}
+                      </Box>
+                      <Box sx={{ textAlign: 'right', minWidth: 90 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 800 }}
+                          color={Number(u.cantidad_disponible) === 0 ? 'error.main' : 'text.primary'}
+                        >
+                          Stock: {u.cantidad_disponible}
+                        </Typography>
+                        {typeof u.cantidad_minima === 'number' && (
+                          <Typography variant="caption" color="text.secondary">
+                            Mín: {u.cantidad_minima}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                <Typography color="text.secondary">
+                  Sin stock por ubicaciones
                 </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ lineHeight: 1.35 }}
+              )}
+            </Box>
+
+            {/* 2) Colores */}
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}>
+              Colores
+            </Typography>
+
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2, minHeight: 40 }}>
+              {producto.colores && producto.colores.length
+                ? producto.colores.map((c, i) => (
+                    <Chip
+                      key={i}
+                      label={c.color}
+                      size="small"
+                      sx={{
+                        backgroundColor: c.codigo_color || '#eee',
+                        color: c.codigo_color && c.codigo_color.toLowerCase() === '#000000' ? '#fff' : '#000',
+                        borderRadius: 2,
+                        fontWeight: 600,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.18)'
+                      }}
+                    />
+                  ))
+                : <Typography color="text.secondary">Sin colores</Typography>}
+            </Box>
+
+            {/* 3) Proveedor */}
+            <Divider sx={{ mb: 2 }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}>
+              Proveedor
+            </Typography>
+
+            <Box
+              sx={{
+                borderRadius: 2,
+                p: 1.6,
+                background: 'linear-gradient(145deg,#ffffff 0%, #fafafa 100%)',
+                border: '1px solid rgba(0,0,0,0.06)',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.08)'
+              }}
+            >
+              <Typography sx={{ fontWeight: 800, mb: 0.3 }}>
+                {producto.proveedor?.nombre ?? 'Sin proveedor'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.35 }}>
+                {producto.proveedor?.actividad ?? ''}
+              </Typography>
+            </Box>
+
+            {/* 4) Código QR (NUEVO) */}
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.2, letterSpacing: 0.3 }}>
+              Código QR
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+              {sku ? (
+                <Box
+                  sx={{
+                    p: 1.2,
+                    borderRadius: 2,
+                    border: '1px solid rgba(0,0,0,0.06)',
+                    background: 'linear-gradient(180deg,#ffffff 0%, #f9fafb 100%)',
+                    boxShadow: '0 3px 8px rgba(0,0,0,0.06)'
+                  }}
                 >
-                  {producto.proveedor?.actividad ?? ''}
-                </Typography>
-              </Box>
-            </TabPanel>
+                  <QRCodeCanvas value={sku} size={128} />
+                </Box>
+              ) : (
+                <Typography color="text.secondary">SKU no disponible</Typography>
+              )}
+            </Box>
+            {sku && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                {sku}
+              </Typography>
+            )}
+
+          </TabPanel>
         </Box>
       </Box>
     </Box>

@@ -8,7 +8,13 @@ const sqlite3 = require('sqlite3').verbose();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const FRONT_ORIGIN = 'https://192.168.10.104:5174';
+// const FRONT_ORIGIN = 'https://192.168.10.104:5174';
+const ALLOWED = new Set([
+  'https://192.168.10.104:5173',
+  'https://192.168.10.104:5174',
+  'http://192.168.10.104:5173',
+  'http://192.168.10.104:5174',
+]);
 
 // Rutas de archivos
 const dbPath = path.join(__dirname, 'database', 'colchoneswilson.db');
@@ -20,22 +26,44 @@ const db = new sqlite3.Database(dbPath, (err) => {
     console.error('Error al abrir base de datos:', err.message);
     return;
   }
-  try {
-    const initSQL = fs.readFileSync(sqlInitPath, 'utf-8');
-    db.exec(initSQL, (err2) => {
-      if (err2) return console.error('Error al ejecutar init.sql:', err2.message);
-      console.log('Base de datos inicializada correctamente.');
-    });
-  } catch (e) {
-    console.error('No se pudo leer init.sql:', e.message);
-  }
+
+  // Ajustes PRAGMA por conexión (recomendados)
+  db.serialize(() => {
+    db.run("PRAGMA foreign_keys = ON;");
+    db.run("PRAGMA journal_mode = WAL;");
+    db.run("PRAGMA busy_timeout = 5000;");
+
+    // Verificación (logs opcionales; puedes borrarlos cuando lo desees)
+    db.get("PRAGMA foreign_keys;", (_e1, r1) => console.log('[DB] FK:', r1));
+    db.get("PRAGMA journal_mode;", (_e2, r2) => console.log('[DB] Journal:', r2));
+    db.get("PRAGMA busy_timeout;", (_e3, r3) => console.log('[DB] Timeout:', r3));
+
+    // Ejecutar init.sql (crea tablas si no existen)
+    try {
+      const initSQL = fs.readFileSync(sqlInitPath, 'utf-8');
+      db.exec(initSQL, (err2) => {
+        if (err2) return console.error('Error al ejecutar init.sql:', err2.message);
+        console.log('Base de datos inicializada correctamente.');
+      });
+    } catch (e) {
+      console.error('No se pudo leer init.sql:', e.message);
+    }
+  });
 });
 
 // Middleware
-app.use(cors({
+/* app.use(cors({
   origin: FRONT_ORIGIN,
   credentials: false
+})); */
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true); // cURL/Postman
+    cb(ALLOWED.has(origin) ? null : new Error('CORS bloqueado: ' + origin), ALLOWED.has(origin));
+  },
+  credentials: false
 }));
+
 app.use(express.json());
 
 // Salud / diagnostico
