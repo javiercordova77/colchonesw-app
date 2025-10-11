@@ -16,7 +16,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import SortIcon from '@mui/icons-material/Sort';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useNavigate } from 'react-router-dom';
-import { fetchProductosListado, BASE_URL } from '../api';
+//import { fetchProductosListado, BASE_URL } from '../api';
+import { fetchProductosListado, BASE_URL, getCachedListado } from '../api';  //Nuevo
 
 export default function Inventario() {
   console.log('[TRACE] Inventario: render inicial');
@@ -30,6 +31,40 @@ export default function Inventario() {
 
   const navigate = useNavigate();
 
+  useEffect(() => {
+    let cancel = false;
+
+    // 1) cache primero
+    const cached = getCachedListado({ q: '', orden: 'nombre_asc' });
+    if (cached) {
+      setProductos(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    // 2) red para refrescar
+    (async () => {
+      try {
+        const data = await fetchProductosListado();
+        if (cancel) return;
+        setProductos(Array.isArray(data) ? data : []);
+        setLoading(false);
+      } catch (e) {
+        if (cancel) return;
+        if (!cached) {
+          setProductos([]);
+          setLoading(false);
+        } else {
+          console.warn('[Inventario] usando cache por error de red');
+        }
+      }
+    })();
+
+    return () => { cancel = true; };
+  }, []);
+
+  /*
   useEffect(() => {
     let cancel = false;
     async function load() {
@@ -49,6 +84,7 @@ export default function Inventario() {
     load();
     return () => { cancel = true; };
   }, []);
+  */
 
   const productosFiltrados = useMemo(() => {
     let arr = [...productos];

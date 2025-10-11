@@ -1,7 +1,8 @@
 // ProductoDetalle.jsx (UI refinada)
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchProductoPorCodigo, BASE_URL } from '../api';
+//import { fetchProductoPorCodigo, BASE_URL } from '../api';
+import { fetchProductoPorCodigo, BASE_URL, getCachedProducto } from '../api';  //NUEVO
 import { QRCodeCanvas } from 'qrcode.react';
 import {
   Box,
@@ -41,6 +42,41 @@ export default function ProductoDetalle() {
 
   useEffect(() => {
     let cancel = false;
+
+    // 1) Pintar cache si existe (carga instantánea, útil offline)
+    const cached = getCachedProducto(codigo);
+    if (cached) {
+      setProducto(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    // 2) Intentar red fresca
+    setError(null);
+    fetchProductoPorCodigo(codigo)
+      .then(data => {
+        if (cancel) return;
+        setProducto(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        if (cancel) return;
+        // Si ya mostramos cache, no romper la UI; solo loguear
+        if (!cached) {
+          setError('No se pudo obtener el producto');
+          setLoading(false);
+        } else {
+          console.warn('[Detalle] usando cache por error de red');
+        }
+      });
+
+    return () => { cancel = true; };
+  }, [codigo]);
+
+  /*
+  useEffect(() => {
+    let cancel = false;
     setLoading(true);
     setError(null);
     fetchProductoPorCodigo(codigo)
@@ -60,6 +96,8 @@ export default function ProductoDetalle() {
       });
     return () => { cancel = true; };
   }, [codigo]);
+  */
+
 
   const handleCopySKU = async (text) => {
     try {

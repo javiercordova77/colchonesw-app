@@ -1,7 +1,42 @@
 import axios from 'axios';
 
-//export const BASE_URL = 'http://localhost:3001';
+// export const BASE_URL = 'http://localhost:3001';
 export const BASE_URL = 'https://192.168.10.104:3001';
+
+// ===== Cache simple en localStorage =====
+const CACHE_PREFIX = 'cwcache:';
+function cacheKeyProducto(codigo) {
+  return `${CACHE_PREFIX}producto:${(codigo || '').toLowerCase()}`;
+}
+function cacheKeyListado(q = '', orden = 'nombre_asc') {
+  return `${CACHE_PREFIX}listado:q=${(q || '').toLowerCase()}|orden=${orden}`;
+}
+function cacheSet(key, value) {
+  try {
+    const payload = { ts: Date.now(), value };
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch {}
+}
+function cacheGet(key, maxAgeMs = 24 * 60 * 60 * 1000) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj.ts !== 'number') return null;
+    if (Date.now() - obj.ts > maxAgeMs) return null;
+    return obj.value;
+  } catch {
+    return null;
+  }
+}
+
+// Helpers para leer cache desde componentes (mostrar algo offline)
+export function getCachedProducto(codigo, maxAgeMs) {
+  return cacheGet(cacheKeyProducto(codigo), maxAgeMs);
+}
+export function getCachedListado({ q = '', orden = 'nombre_asc', maxAgeMs } = {}) {
+  return cacheGet(cacheKeyListado(q, orden), maxAgeMs);
+}
 
 function sanitizeCodigo(raw) {
   return (raw || '')
@@ -15,61 +50,58 @@ export async function fetchProductoPorCodigo(codigoVariante) {
   const path = `/api/productos/${encodeURIComponent(limpio)}`;
   const url = `${BASE_URL}${path}`;
 
-  console.debug('[API] fetchProductoPorCodigo -> codigo bruto:', codigoVariante);
-  console.debug('[API] fetchProductoPorCodigo -> codigo limpio:', limpio);
-  console.debug('[API] URL final:', url);
-
+  console.debug('[API] fetchProductoPorCodigo URL:', url);
   try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { Accept: 'application/json' }
-    });
-    console.debug('[API] HTTP status:', res.status);
+    const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
     if (!res.ok) {
       const text = await res.text().catch(() => '(no body)');
-      console.error('[API] Respuesta no OK. Body:', text);
+      console.error('[API] Detalle no OK:', res.status, text);
+      // Fallback a cache si existe
+      const cached = getCachedProducto(limpio);
+      if (cached) return cached;
       throw new Error('HTTP ' + res.status);
     }
     const data = await res.json();
-    console.debug('[API] JSON recibido:', data);
+    cacheSet(cacheKeyProducto(limpio), data);
     return data;
   } catch (err) {
-    console.error('[API] Network / Fetch error primario:', err);
-    await new Promise(r => setTimeout(r, 150));
-    try {
-      console.debug('[API] Reintento fetch:', url);
-      const res2 = await fetch(url);
-      if (!res2.ok) throw new Error('HTTP ' + res2.status);
-      const data2 = await res2.json();
-      console.debug('[API] Reintento OK:', data2);
-      return data2;
-    } catch (err2) {
-      console.error('[API] Reintento falló:', err2);
-      throw err2;
-    }
+    console.error('[API] Error detalle:', err);
+    const cached = getCachedProducto(limpio);
+    if (cached) return cached;
+    throw err;
   }
 }
 
-// === NUEVO: LISTADO COMPLETO DE PRODUCTOS ===
-export async function fetchProductosListado() {
-  const url = `${BASE_URL}/api/productos`; // Debe devolver un array
+// Listado con soporte de búsqueda/orden y cache
+export async function fetchProductosListado({ q = '', orden = 'nombre_asc' } = {}) {
+  const params = new URLSearchParams();
+  if (q && q.trim()) params.set('q', q.trim());
+  if (orden) params.set('orden', orden);
+  const qs = params.toString();
+  const url = `${BASE_URL}/api/productos${qs ? `?${qs}` : ''}`;
+
   console.debug('[API] fetchProductosListado URL:', url);
-  let res;
   try {
-    res = await fetch(url, { headers: { Accept: 'application/json' } });
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '(no body)');
+      console.error('[API] Listado no OK:', res.status, text);
+      const cached = getCachedListado({ q, orden });
+      if (cached) return cached;
+      throw new Error('HTTP ' + res.status);
+    }
+    const data = await res.json();
+    const arr = Array.isArray(data) ? data : [];
+    cacheSet(cacheKeyListado(q, orden), arr);
+    return arr;
   } catch (e) {
-    console.error('[API] Error de red listado:', e);
+    console.error('[API] Error listado:', e);
+    const cached = getCachedListado({ q, orden });
+    if (cached) return cached;
     throw e;
   }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '(no body)');
-    console.error('[API] Listado HTTP no OK:', res.status, text);
-    throw new Error('HTTP ' + res.status);
-  }
-  const data = await res.json();
-  if (!Array.isArray(data)) {
-    console.warn('[API] Respuesta listado no es array, envolviendo en array');
-    return [];
-  }
-  return data;
+}
+
+export function getImagenUrl(nombre) {
+  return nombre ? `${BASE_URL}/images/${nombre}` : '/logo.png';
 }
