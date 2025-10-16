@@ -1,7 +1,6 @@
 // ProductoDetalle.jsx (UI refinada)
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-//import { fetchProductoPorCodigo, BASE_URL } from '../api';
 import { fetchProductoPorCodigo, BASE_URL, getCachedProducto } from '../api';  //NUEVO
 import { QRCodeCanvas } from 'qrcode.react';
 import {

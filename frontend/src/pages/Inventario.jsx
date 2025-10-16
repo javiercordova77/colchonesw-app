@@ -16,7 +16,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import SortIcon from '@mui/icons-material/Sort';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useNavigate } from 'react-router-dom';
-//import { fetchProductosListado, BASE_URL } from '../api';
 import { fetchProductosListado, BASE_URL, getCachedListado } from '../api';  //Nuevo
 
 export default function Inventario() {
