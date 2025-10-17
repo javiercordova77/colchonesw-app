@@ -183,3 +183,31 @@ export async function fetchVariantesResumen({ idProducto, q = '', orden = 'medid
   cacheSet(cacheKeyVariantesResumen(idProducto, q, orden), data);
   return data;
 }
+
+
+// ===== API: Edición de producto (+producto) =====
+export async function fetchProductoEdicion(id, { signal } = {}) {
+  const url = `${BASE_URL}/api/productos/${id}/editar`;
+  console.debug('[API] fetchProductoEdicion URL:', url);
+  const res = await fetch(url, { signal, headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`fetchProductoEdicion failed: ${res.status} ${txt}`);
+  }
+  return res.json();
+}
+
+export async function updateProducto(id, payload) {
+  const url = `${BASE_URL}/api/productos/${id}`;
+  console.debug('[API] updateProducto URL:', url);
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`updateProducto failed: ${res.status} ${txt}`);
+  }
+  return res.json();
+}

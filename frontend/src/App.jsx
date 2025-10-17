@@ -14,6 +14,7 @@ import CategoriasConfig from './pages/config/CategoriasConfig';
 import UbicacionesConfig from './pages/config/UbicacionesConfig';
 import ParametrosSistema from './pages/config/ParametrosSistema';
 import VariantesConfig from './pages/config/VariantesConfig';
+import ProductosEditar from './pages/config/ProductosEditar';
 
 export default function App() {
   console.log('[TRACE] App render');
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/config/ubicaciones" element={<UbicacionesConfig />} />
           <Route path="/config/parametros" element={<ParametrosSistema />} />
           <Route path="/config/productos/:id/variantes" element={<VariantesConfig />} />
+          <Route path="/config/productos/:id/editar" element={<ProductosEditar />} />
           <Route path="/qr" element={<Qr />} />
           {/* Ruta comodín al final */}
           <Route path="*" element={<div style={{ padding: 24 }}>No encontrado</div>} />

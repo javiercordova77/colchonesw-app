@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import {
   Container, Stack, Typography, Box, Divider, CircularProgress,
   TextField, InputAdornment, IconButton, Skeleton
@@ -99,21 +100,23 @@ export default function VariantesConfig() {
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
         <NavBack ariaLabel="Volver a Productos" to="/config/productos" />
         {imagenUrl && (
-          <Box
-            component="img"
-            src={imagenUrl}
-            alt={titulo}
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            sx={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 0.5 }}
-          />
+          <Box component="img" src={imagenUrl} alt={titulo}
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              sx={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 0.5 }} />
         )}
-        <Typography variant="h6" sx={{ fontWeight: 800 }} title={titulo}>
-          {titulo}
-        </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 800 }} title={titulo}>{titulo}</Typography>
         <Box sx={{ flex: 1 }} />
         {refreshing && <CircularProgress size={16} thickness={5} sx={{ mr: 1 }} />}
         <IconButton size="small" onClick={() => load({ useCacheFirst: false })} aria-label="Refrescar">
           <RefreshRoundedIcon fontSize="small" />
+        </IconButton>
+        <IconButton
+          size="small"
+          sx={{ border: '1px solid', borderColor: 'divider', ml: 0.5 }}
+          title="Editar producto y variantes"
+          onClick={() => navigate(`/config/productos/${id}/editar`, { state: { producto } })}
+        >
+          <EditRoundedIcon fontSize="small" />
         </IconButton>
       </Stack>
 
