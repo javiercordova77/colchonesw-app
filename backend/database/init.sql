@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS variantes (
   precio_compra REAL,
   fecha_ingreso TEXT NOT NULL DEFAULT (datetime('now')), -- alta de la variante (UTC)
   updated_at   TEXT NOT NULL DEFAULT (datetime('now')),  -- última modificación (UTC)
+  activo INTEGER NOT NULL DEFAULT 1,                     -- 1=activa, 0=deshabilitada
   FOREIGN KEY (id_producto) REFERENCES productos(id)
 );
 
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS colores_variantes (
 -- Índices recomendados
 CREATE INDEX IF NOT EXISTS idx_variantes_codigo ON variantes(codigo_variante);
 CREATE INDEX IF NOT EXISTS idx_variantes_producto ON variantes(id_producto);
+CREATE INDEX IF NOT EXISTS idx_variantes_activo ON variantes(activo);
 CREATE INDEX IF NOT EXISTS idx_stock_ubicaciones_variante ON stock_ubicaciones(id_variante);
 CREATE INDEX IF NOT EXISTS idx_stock_ubicaciones_ubicacion ON stock_ubicaciones(id_ubicacion);
 
@@ -86,6 +88,17 @@ SELECT
   COALESCE(MIN(su.cantidad_minima), 0)     AS cantidad_minima
 FROM variantes v
 LEFT JOIN stock_ubicaciones su ON su.id_variante = v.id
+GROUP BY v.id;
+
+-- Vista adicional: sólo variantes activas
+CREATE VIEW IF NOT EXISTS vw_variantes_activas_stock_agg AS
+SELECT
+  v.id               AS id_variante,
+  COALESCE(SUM(su.cantidad_disponible), 0) AS cantidad_disponible,
+  COALESCE(MIN(su.cantidad_minima), 0)     AS cantidad_minima
+FROM variantes v
+LEFT JOIN stock_ubicaciones su ON su.id_variante = v.id
+WHERE v.activo = 1
 GROUP BY v.id;
 
 -- ------------------------------------------------------------
@@ -107,13 +120,13 @@ INSERT OR IGNORE INTO productos (id_categoria, id_proveedor, descripcion, imagen
   (1, 1, 'Colchón Imperial', 'productos/colchones/chaideimperial.png', 'resortes'),
   (2, 1, 'Almohada Memory Foam', 'productos/almohadas/chaidememory.png', 'espuma viscoelástica');
 
--- Variantes (sin cantidades)
-INSERT OR IGNORE INTO variantes (id_producto, codigo_variante, medida, precio_venta, precio_compra, fecha_ingreso) VALUES
-  (1, 'CH-105x190-BLN',        '105x190',      130, 100, '2025-06-24'),
-  (1, 'CH-135x190x23-NGR',     '135x190x23',   150, 120, '2025-06-24'),
-  (1, 'CH-135x190x27-BLN',     '135x190x27',   160, 125, '2025-06-24'),
-  (2, 'ALM-50x70-BLN',         '50x70',        10,  7,   '2025-06-24'),
-  (2, 'ALM-60x80-NGR',         '60x80',        12,  9,   '2025-06-24');
+-- Variantes (sin cantidades) - activo=1 por defecto
+INSERT OR IGNORE INTO variantes (id_producto, codigo_variante, medida, precio_venta, precio_compra, fecha_ingreso, activo) VALUES
+  (1, 'CH-105x190-BLN',        '105x190',      130, 100, '2025-06-24', 1),
+  (1, 'CH-135x190x23-NGR',     '135x190x23',   150, 120, '2025-06-24', 1),
+  (1, 'CH-135x190x27-BLN',     '135x190x27',   160, 125, '2025-06-24', 1),
+  (2, 'ALM-50x70-BLN',         '50x70',        10,  7,   '2025-06-24', 1),
+  (2, 'ALM-60x80-NGR',         '60x80',        12,  9,   '2025-06-24', 1);
 
 -- Ubicaciones
 INSERT OR IGNORE INTO ubicaciones (id, nombre, descripcion) VALUES
@@ -126,12 +139,11 @@ INSERT OR IGNORE INTO stock_ubicaciones (id_variante, id_ubicacion, cantidad_dis
   (2, 1, 15, 3,  '2025-06-24'),
   (3, 1, 10, 2,  '2025-06-24'),
   (4, 1, 30, 10, '2025-06-24'),
-  (1, 2, 5, 1, '2025-06-24'),
+  (1, 2, 5, 1,   '2025-06-24'),
   (5, 1, 25, 10, '2025-06-24'),
-  (3, 2, 8, 1, '2025-06-24');
+  (3, 2, 8, 1,   '2025-06-24');
 
-
--- Colores (igual que antes)
+-- Colores
 INSERT OR IGNORE INTO colores_variantes (id_variante, color, codigo_color) VALUES
   (1, 'blanco', '#ffffff'),
   (1, 'negro',  '#000000'),

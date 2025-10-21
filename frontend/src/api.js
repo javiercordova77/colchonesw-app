@@ -81,7 +81,6 @@ export function getImagenUrl(nombre) {
 // ================== API: DETALLE POR CÓDIGO DE VARIANTE ==================
 export async function fetchProductoPorCodigo(codigoVariante) {
   const limpio = sanitizeCodigo(codigoVariante);
-  // Antes: const path = `/api/productos/${encodeURIComponent(limpio)}`;
   const path = `/api/productos/codigo/${encodeURIComponent(limpio)}`;
   const url = `${BASE_URL}${path}`;
 
@@ -184,7 +183,6 @@ export async function fetchVariantesResumen({ idProducto, q = '', orden = 'medid
   return data;
 }
 
-
 // ===== API: Edición de producto (+producto) =====
 export async function fetchProductoEdicion(id, { signal } = {}) {
   const url = `${BASE_URL}/api/productos/${id}/editar`;
@@ -210,4 +208,30 @@ export async function updateProducto(id, payload) {
     throw new Error(`updateProducto failed: ${res.status} ${txt}`);
   }
   return res.json();
+}
+
+// ===== API: Variantes (validar y eliminar) =====
+export async function canDeleteVariante(idVariante, { signal } = {}) {
+  const url = `${BASE_URL}/api/variantes/${idVariante}/can-delete`;
+  console.debug('[API] canDeleteVariante URL:', url);
+  const res = await fetch(url, { method: 'GET', signal, headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    const err = Object.assign(new Error('canDeleteVariante failed'), { status: res.status, body: txt });
+    throw err;
+  }
+  return res.json();
+}
+
+export async function deleteVariante(idVariante) {
+  const url = `${BASE_URL}/api/variantes/${idVariante}`;
+  console.debug('[API] deleteVariante URL:', url);
+  const res = await fetch(url, { method: 'DELETE', headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    let data = null;
+    try { data = await res.json(); } catch {}
+    const err = Object.assign(new Error('deleteVariante failed'), { status: res.status, data });
+    throw err;
+  }
+  return true;
 }

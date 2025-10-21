@@ -1,5 +1,8 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom';
+import { TransitionGroup, CSSTransition } from 'react-transition-group';
+import './route-transitions.css';
+
 import Escanear from './pages/Escanear';
 import ProductoDetalle from './pages/ProductoDetalle';
 import Inventario from './pages/Inventario';
@@ -15,19 +18,24 @@ import UbicacionesConfig from './pages/config/UbicacionesConfig';
 import ParametrosSistema from './pages/config/ParametrosSistema';
 import VariantesConfig from './pages/config/VariantesConfig';
 import ProductosEditar from './pages/config/ProductosEditar';
+import VariantesEditar from './pages/config/VariantesEditar';
+import SelectCategoria from './pages/config/SelectCategoria';
+import SelectProveedor from './pages/config/SelectProveedor';
 
-export default function App() {
-  console.log('[TRACE] App render');
+function AnimatedRoutes() {
+  const location = useLocation();
+  const navType = useNavigationType(); // 'PUSH' | 'POP' | 'REPLACE'
+
+  // Permite forzar dirección desde location.state.slide = 'left' | 'right'
+  const forced = location.state && location.state.slide;
+  const classNames = forced
+    ? (forced === 'right' ? 'slide-right' : 'slide-left')
+    : (navType === 'POP' ? 'slide-right' : 'slide-left');
+
   return (
-    <div style={{ minHeight: '100vh' }}>
-      <NavbarTop />
-      <div
-        style={{
-          paddingTop: 'calc(56px + env(safe-area-inset-top))',
-          paddingBottom: 'calc(64px + env(safe-area-inset-bottom))'
-        }}
-      >
-        <Routes>
+    <TransitionGroup component={null}>
+      <CSSTransition key={location.key} classNames={classNames} timeout={300}>
+        <Routes location={location}>
           <Route path="/" element={<Escanear />} />
           <Route path="/producto/:codigo" element={<ProductoDetalle />} />
           <Route path="/inventario" element={<Inventario />} />
@@ -40,10 +48,30 @@ export default function App() {
           <Route path="/config/parametros" element={<ParametrosSistema />} />
           <Route path="/config/productos/:id/variantes" element={<VariantesConfig />} />
           <Route path="/config/productos/:id/editar" element={<ProductosEditar />} />
+          <Route path="/config/productos/:id/variantes/nueva" element={<VariantesEditar />} />
+          <Route path="/config/productos/:id/variantes/:idVariante" element={<VariantesEditar />} />
+          <Route path="/config/productos/:id/seleccionar-categoria" element={<SelectCategoria />} />
+          <Route path="/config/productos/:id/seleccionar-proveedor" element={<SelectProveedor />} />
           <Route path="/qr" element={<Qr />} />
-          {/* Ruta comodín al final */}
           <Route path="*" element={<div style={{ padding: 24 }}>No encontrado</div>} />
         </Routes>
+      </CSSTransition>
+    </TransitionGroup>
+  );
+}
+
+export default function App() {
+  return (
+    <div style={{ minHeight: '100vh' }}>
+      <NavbarTop />
+      <div
+        style={{
+          paddingTop: 'calc(56px + env(safe-area-inset-top))',
+          paddingBottom: 'calc(64px + env(safe-area-inset-bottom))',
+          overflowX: 'hidden'
+        }}
+      >
+        <AnimatedRoutes />
       </div>
       <NavbarBottom />
     </div>

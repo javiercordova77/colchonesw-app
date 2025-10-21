@@ -6,9 +6,10 @@ module.exports = function (db) {
 
   // LISTADO: GET /api/productos?q&orden
   // orden: nombre_asc|nombre_desc|stock_asc|stock_desc
+  // Nota: filtra solo variantes activas (v.activo = 1)
   router.get('/', (req, res) => {
     const { q = '', orden = 'nombre_asc' } = req.query;
-    const filtros = [];
+    const filtros = ['v.activo = 1'];
     const params = [];
 
     if (q.trim() !== '') {
@@ -54,6 +55,7 @@ module.exports = function (db) {
   });
 
   // RESUMEN POR PRODUCTO: GET /api/productos/resumen?q&orden
+  // Nota: suma stock solo de variantes activas
   router.get('/resumen', (req, res) => {
     const { q = '', orden = 'nombre_asc' } = req.query;
     const filtros = [];
@@ -82,7 +84,7 @@ module.exports = function (db) {
         p.imagen,
         COALESCE(SUM(su.cantidad_disponible), 0) AS stock_total
       FROM productos p
-      LEFT JOIN variantes v ON v.id_producto = p.id
+      LEFT JOIN variantes v ON v.id_producto = p.id AND v.activo = 1
       LEFT JOIN stock_ubicaciones su ON su.id_variante = v.id
       ${whereClause}
       GROUP BY p.id
@@ -95,7 +97,7 @@ module.exports = function (db) {
   });
 
   // DETALLE por CÓDIGO de variante: GET /api/productos/codigo/:codigo_variante
-  // Se declara antes de "/:id" para evitar colisiones
+  // Nota: solo retorna variantes activas
   router.get('/codigo/:codigo_variante', (req, res) => {
     const codigo = req.params.codigo_variante;
     const qDetalle = `
@@ -121,7 +123,7 @@ module.exports = function (db) {
       JOIN categorias c ON p.id_categoria = c.id
       JOIN proveedores prov ON p.id_proveedor = prov.id
       LEFT JOIN vw_variantes_stock_agg vs ON vs.id_variante = v.id
-      WHERE v.codigo_variante = ?;
+      WHERE v.codigo_variante = ? AND v.activo = 1;
     `;
     db.get(qDetalle, [codigo], (err, row) => {
       if (err) return res.status(500).json({ error: 'Error en la consulta de producto' });
@@ -169,6 +171,7 @@ module.exports = function (db) {
   });
 
   // EDITAR PRODUCTO (payload completo): GET /api/productos/:id/editar
+  // Nota: devuelve TODAS las variantes (activas y deshabilitadas) para poder administrarlas.
   router.get('/:id/editar', (req, res) => {
     const id = Number(req.params.id || 0);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'id inválido' });
@@ -178,7 +181,7 @@ module.exports = function (db) {
       FROM productos WHERE id = ? LIMIT 1;
     `;
     const qVars = `
-      SELECT id, id_producto, medida, codigo_variante, precio_venta, precio_compra, fecha_ingreso
+      SELECT id, id_producto, medida, codigo_variante, precio_venta, precio_compra, fecha_ingreso, COALESCE(activo, 1) AS activo
       FROM variantes WHERE id_producto = ? ORDER BY medida COLLATE NOCASE ASC;
     `;
     const qCats = `SELECT id, nombre FROM categorias ORDER BY nombre COLLATE NOCASE ASC;`;
@@ -244,6 +247,7 @@ module.exports = function (db) {
   });
 
   // GUARDAR EDICIÓN PRODUCTO + variantes + colores: PUT /api/productos/:id
+  // Nota: persiste 'activo' en variantes (1=activa, 0=deshabilitada)
   router.put('/:id', express.json(), (req, res) => {
     const id = Number(req.params.id || 0);
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'id inválido' });
@@ -276,19 +280,21 @@ module.exports = function (db) {
 
           const updVar = (v, cb) => {
             const vId = Number(v.id || 0);
+            const activoVal = (v.activo === 0 || v.activo === false) ? 0 : 1;
 
             // Insertar nueva variante (id=0)
             if (!vId) {
               db.run(
-                `INSERT INTO variantes (id_producto, medida, codigo_variante, precio_venta, precio_compra, fecha_ingreso)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO variantes (id_producto, medida, codigo_variante, precio_venta, precio_compra, fecha_ingreso, activo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                   id,
                   (v.medida || '').trim(),
                   (v.codigo_variante || '').trim(),
                   Number(v.precio_venta || 0),
                   Number(v.precio_compra || 0),
-                  (v.fecha_ingreso || null)
+                  (v.fecha_ingreso || null),
+                  activoVal
                 ],
                 function (errIns) {
                   if (errIns) return cb(errIns);
@@ -310,9 +316,10 @@ module.exports = function (db) {
               return;
             }
 
-            // Actualizar variante existente
+            // Actualizar variante existente (incluye 'activo')
             db.run(
-              `UPDATE variantes SET medida = ?, codigo_variante = ?, precio_venta = ?, precio_compra = ?, fecha_ingreso = ?
+              `UPDATE variantes SET
+                 medida = ?, codigo_variante = ?, precio_venta = ?, precio_compra = ?, fecha_ingreso = ?, activo = ?
                WHERE id = ? AND id_producto = ?`,
               [
                 (v.medida || '').trim(),
@@ -320,6 +327,7 @@ module.exports = function (db) {
                 Number(v.precio_venta || 0),
                 Number(v.precio_compra || 0),
                 (v.fecha_ingreso || null),
+                activoVal,
                 vId, id
               ],
               function (err2) {
@@ -364,12 +372,13 @@ module.exports = function (db) {
 
   // VARIANTES RESUMEN por producto: GET /api/productos/:id/variantes/resumen
   // orden: medida_asc|medida_desc|codigo_asc|codigo_desc|stock_asc|stock_desc
+  // Nota: filtra solo activas (v.activo = 1)
   router.get('/:id/variantes/resumen', (req, res) => {
     const id = Number(req.params.id || 0);
     const { q = '', orden = 'medida_asc' } = req.query;
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'id inválido' });
 
-    const filtros = ['v.id_producto = ?'];
+    const filtros = ['v.id_producto = ?', 'v.activo = 1'];
     const params = [id];
 
     if (q.trim() !== '') {
@@ -419,6 +428,9 @@ module.exports = function (db) {
       res.json(row);
     });
   });
+
+  // NOTA: Eliminados los endpoints de eliminación/validación de variantes.
+  // Estrategia definida: no se elimina la variante; se deshabilita con 'activo = 0'.
 
   return router;
 };
