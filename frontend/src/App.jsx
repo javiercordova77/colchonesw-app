@@ -44,7 +44,7 @@ function AnimatedRoutes() {
   return (
     <TransitionGroup component={null}>
       {/* Overlap: ambas pantallas conviven mientras se animan */}
-      <CSSTransition key={key} classNames={classNames} timeout={280} nodeRef={nodeRef}>
+      <CSSTransition key={key} classNames={classNames} timeout={260} nodeRef={nodeRef}>
         <div ref={nodeRef} className="route-page">
           <Routes location={location}>
             <Route path="/" element={<Escanear />} />

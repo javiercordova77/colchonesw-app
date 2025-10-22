@@ -176,6 +176,7 @@ export default function ProductoDetalle() {
                 position: 'absolute',
                 left: 12,
                 top: 12,
+                zIndex: 3, // asegura clic durante la transición
                 background: 'rgba(255,255,255,0.15)',
                 color: '#fff',
                 '&:hover': { background: 'rgba(255,255,255,0.25)' },
