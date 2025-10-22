@@ -2,7 +2,6 @@ import React from 'react';
 import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom';
 import { TransitionGroup, CSSTransition } from 'react-transition-group';
 import './route-transitions.css';
-
 import Escanear from './pages/Escanear';
 import ProductoDetalle from './pages/ProductoDetalle';
 import Inventario from './pages/Inventario';
@@ -26,35 +25,48 @@ function AnimatedRoutes() {
   const location = useLocation();
   const navType = useNavigationType(); // 'PUSH' | 'POP' | 'REPLACE'
 
-  // Permite forzar dirección desde location.state.slide = 'left' | 'right'
+  // Dirección: forzar con state.slide o inferir por tipo de navegación
   const forced = location.state && location.state.slide;
   const classNames = forced
     ? (forced === 'right' ? 'slide-right' : 'slide-left')
     : (navType === 'POP' ? 'slide-right' : 'slide-left');
 
+  // nodeRef por pathname para evitar findDOMNode y permitir overlap
+  const refsMap = React.useRef(new Map());
+  const getNodeRef = (key) => {
+    if (!refsMap.current.has(key)) refsMap.current.set(key, React.createRef());
+    return refsMap.current.get(key);
+  };
+
+  const key = location.pathname;
+  const nodeRef = getNodeRef(key);
+
   return (
     <TransitionGroup component={null}>
-      <CSSTransition key={location.key} classNames={classNames} timeout={300}>
-        <Routes location={location}>
-          <Route path="/" element={<Escanear />} />
-          <Route path="/producto/:codigo" element={<ProductoDetalle />} />
-          <Route path="/inventario" element={<Inventario />} />
-          <Route path="/config" element={<Configuracion />} />
-          <Route path="/config/general" element={<ConfigGeneral />} />
-          <Route path="/config/productos" element={<ProductosConfig />} />
-          <Route path="/config/proveedores" element={<ProveedoresConfig />} />
-          <Route path="/config/categorias" element={<CategoriasConfig />} />
-          <Route path="/config/ubicaciones" element={<UbicacionesConfig />} />
-          <Route path="/config/parametros" element={<ParametrosSistema />} />
-          <Route path="/config/productos/:id/variantes" element={<VariantesConfig />} />
-          <Route path="/config/productos/:id/editar" element={<ProductosEditar />} />
-          <Route path="/config/productos/:id/variantes/nueva" element={<VariantesEditar />} />
-          <Route path="/config/productos/:id/variantes/:idVariante" element={<VariantesEditar />} />
-          <Route path="/config/productos/:id/seleccionar-categoria" element={<SelectCategoria />} />
-          <Route path="/config/productos/:id/seleccionar-proveedor" element={<SelectProveedor />} />
-          <Route path="/qr" element={<Qr />} />
-          <Route path="*" element={<div style={{ padding: 24 }}>No encontrado</div>} />
-        </Routes>
+      {/* Overlap: ambas pantallas conviven mientras se animan */}
+      <CSSTransition key={key} classNames={classNames} timeout={280} nodeRef={nodeRef}>
+        <div ref={nodeRef} className="route-page">
+          <Routes location={location}>
+            <Route path="/" element={<Escanear />} />
+            <Route path="/producto/:codigo" element={<ProductoDetalle />} />
+            <Route path="/inventario" element={<Inventario />} />
+            <Route path="/config" element={<Configuracion />} />
+            <Route path="/config/general" element={<ConfigGeneral />} />
+            <Route path="/config/productos" element={<ProductosConfig />} />
+            <Route path="/config/proveedores" element={<ProveedoresConfig />} />
+            <Route path="/config/categorias" element={<CategoriasConfig />} />
+            <Route path="/config/ubicaciones" element={<UbicacionesConfig />} />
+            <Route path="/config/parametros" element={<ParametrosSistema />} />
+            <Route path="/config/productos/:id/variantes" element={<VariantesConfig />} />
+            <Route path="/config/productos/:id/editar" element={<ProductosEditar />} />
+            <Route path="/config/productos/:id/variantes/nueva" element={<VariantesEditar />} />
+            <Route path="/config/productos/:id/variantes/:idVariante" element={<VariantesEditar />} />
+            <Route path="/config/productos/:id/seleccionar-categoria" element={<SelectCategoria />} />
+            <Route path="/config/productos/:id/seleccionar-proveedor" element={<SelectProveedor />} />
+            <Route path="/qr" element={<Qr />} />
+            <Route path="*" element={<div style={{ padding: 24 }}>No encontrado</div>} />
+          </Routes>
+        </div>
       </CSSTransition>
     </TransitionGroup>
   );
@@ -66,9 +78,11 @@ export default function App() {
       <NavbarTop />
       <div
         style={{
+          position: 'relative',              // importante para overlap absoluto
           paddingTop: 'calc(56px + env(safe-area-inset-top))',
           paddingBottom: 'calc(64px + env(safe-area-inset-bottom))',
-          overflowX: 'hidden'
+          overflowX: 'hidden',
+          minHeight: 'calc(100vh - 56px - 64px)'
         }}
       >
         <AnimatedRoutes />

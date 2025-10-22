@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Container, Box, Paper, Button,
@@ -23,15 +23,25 @@ export default function ProductosEditar() {
   const [producto, setProducto] = useState(null);
   const [variantes, setVariantes] = useState([]);
 
+  // Helpers
+  const normId = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+  const sameId = (a, b) => String(a) === String(b);
+
   const load = async () => {
     setError(''); setLoading(true);
     try {
       const d = await fetchProductoEdicion(id);
+      const p = {
+        ...d.producto,
+        id_categoria: normId(d.producto?.id_categoria),
+        id_proveedor: normId(d.producto?.id_proveedor),
+      };
       setData(d);
-      setProducto({ ...d.producto });
+      setProducto(p);
       setVariantes((d.variantes || []).map(v => ({ ...v, _cid: `v-${v.id}` })));
+      console.log('[ProductosEditar] load ok', { p, variantes: (d.variantes || []).length });
     } catch (e) {
-      console.error('[ProductosEditar] load:', e);
+      console.error('[ProductosEditar] load error:', e);
       setError('No se pudo cargar datos de edición.');
     } finally {
       setLoading(false);
@@ -40,15 +50,25 @@ export default function ProductosEditar() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
-  // Recibe selección desde vistas hijas y limpia el state
+  // Aplica la selección recibida desde SelectCategoria/Proveedor vía location.state.pick
+  const pickAppliedRef = useRef(false);
   useEffect(() => {
+    if (loading || !producto) return;
+
     const pick = location.state?.pick;
-    if (!pick) return;
-    if (pick.tipo === 'categoria') setProducto(p => ({ ...p, id_categoria: pick.id }));
-    if (pick.tipo === 'proveedor') setProducto(p => ({ ...p, id_proveedor: pick.id }));
-    navigate(location.pathname, { replace: true, state: null });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state]);
+    if (!pick || pickAppliedRef.current) return;
+
+    const pickedId = normId(pick.id);
+    if (pick.tipo === 'categoria') {
+      setProducto(prev => ({ ...prev, id_categoria: pickedId }));
+      console.log('[ProductosEditar] categoría aplicada:', pickedId);
+    } else if (pick.tipo === 'proveedor') {
+      setProducto(prev => ({ ...prev, id_proveedor: pickedId }));
+      console.log('[ProductosEditar] proveedor aplicado:', pickedId);
+    }
+    // No navegamos para "limpiar" el state; evitamos remounts y bucles
+    pickAppliedRef.current = true;
+  }, [loading, producto, location.state]);
 
   const titulo = useMemo(() => producto?.descripcion || 'Producto', [producto]);
 
@@ -69,12 +89,12 @@ export default function ProductosEditar() {
 
   const openSelectCategoria = () => {
     navigate(`/config/productos/${id}/seleccionar-categoria`, {
-      state: { currentId: producto?.id_categoria ?? null }
+      state: { currentId: producto?.id_categoria ?? null, slide: 'left' }
     });
   };
   const openSelectProveedor = () => {
     navigate(`/config/productos/${id}/seleccionar-proveedor`, {
-      state: { currentId: producto?.id_proveedor ?? null }
+      state: { currentId: producto?.id_proveedor ?? null, slide: 'left' }
     });
   };
 
@@ -117,7 +137,7 @@ export default function ProductosEditar() {
     <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
       <AppBar position="sticky" elevation={0} sx={{ bgcolor: pageBg, color: 'text.primary', borderBottom: '1px solid', borderColor: 'divider' }}>
         <Toolbar sx={{ minHeight: 56, position: 'relative', gap: 1 }}>
-          <NavBack />  {/* Usa el mismo componente de regreso */}
+          <NavBack />
           <Typography
             variant="subtitle1"
             sx={{ position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none', fontWeight: 600 }}
@@ -150,12 +170,16 @@ export default function ProductosEditar() {
               </CellRow>
               <CellRow label="Categoría" chevron onClick={openSelectCategoria}>
                 <Typography sx={{ color: inputColor }}>
-                  {(data?.lookups?.categorias || []).find(c => c.id === producto.id_categoria)?.nombre || 'Selecciona'}
+                  {(data?.lookups?.categorias || [])
+                    .find(c => sameId((c.id ?? c.id_categoria ?? c.idCategoria), producto.id_categoria))
+                    ?.nombre || 'Selecciona'}
                 </Typography>
               </CellRow>
               <CellRow label="Proveedor" chevron onClick={openSelectProveedor}>
                 <Typography sx={{ color: inputColor }}>
-                  {(data?.lookups?.proveedores || []).find(p => p.id === producto.id_proveedor)?.nombre || 'Selecciona'}
+                  {(data?.lookups?.proveedores || [])
+                    .find(p => sameId((p.id ?? p.id_proveedor ?? p.idProveedor), producto.id_proveedor))
+                    ?.nombre || 'Selecciona'}
                 </Typography>
               </CellRow>
               <CellRow label="Imagen (ruta)">
@@ -178,6 +202,8 @@ export default function ProductosEditar() {
                       sx={{ px: 2, py: 1.25 }}
                     >
                       <ListItemText
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
                         primary={
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <Typography sx={{ color: '#000', fontWeight: 400, mr: 1 }}>Medida</Typography>
