@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Container, Box, Paper, Button,
-  Divider, CircularProgress, Snackbar, Alert, ListItemButton, ListItemText, InputBase, useTheme
+  Divider, CircularProgress, Snackbar, Alert, InputBase, useTheme
 } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { fetchProductoEdicion, updateProducto } from '../../api';
@@ -157,6 +157,7 @@ export default function ProductosEditar() {
           <Box sx={{ py: 6, textAlign: 'center' }}><CircularProgress /></Box>
         ) : (
           <>
+            {/* PRODUCTO */}
             <Typography variant="overline" sx={{ color: 'text.secondary', px: 1, letterSpacing: 0.6 }}>
               Producto
             </Typography>
@@ -187,41 +188,33 @@ export default function ProductosEditar() {
               </CellRow>
             </Paper>
 
+            {/* VARIANTES */}
             <Typography variant="overline" sx={{ color: 'text.secondary', px: 1, letterSpacing: 0.6 }}>
               Variantes
             </Typography>
 
             <Paper elevation={0} sx={{ bgcolor: '#fff', borderRadius: cellRadius, boxShadow: cellShadow, overflow: 'hidden', mb: 2 }}>
               {variantes.length === 0 ? (
-                <Box sx={{ px: 2, py: 2 }}><Typography variant="body2" color="text.secondary">Sin variantes.</Typography></Box>
+                <Box sx={{ px: 2, py: 2 }}>
+                  <Typography variant="body2" color="text.secondary">Sin variantes.</Typography>
+                </Box>
               ) : (
                 variantes.map((v, i) => (
-                  <Box key={v._cid} sx={{ borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider' }}>
-                    <ListItemButton
-                      onClick={() => navigate(`/config/productos/${id}/variantes/${v.id}`, { state: { variante: v, producto } })}
-                      sx={{ px: 2, py: 1.25 }}
-                    >
-                      <ListItemText
-                        primaryTypographyProps={{ component: 'div' }}
-                        secondaryTypographyProps={{ component: 'div' }}
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Typography sx={{ color: '#000', fontWeight: 400, mr: 1 }}>Medida</Typography>
-                            <Typography sx={{ color: 'text.primary', fontWeight: 600 }}>{v.medida || '(sin medida)'}</Typography>
-                          </Box>
-                        }
-                        secondary={
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Typography sx={{ color: '#000', fontWeight: 400, mr: 1 }}>Código</Typography>
-                            <Typography sx={{ color: 'text.secondary' }}>{v.codigo_variante || '—'}</Typography>
-                          </Box>
-                        }
-                      />
-                      <ChevronRightIcon sx={{ color: 'text.secondary' }} />
-                    </ListItemButton>
-                  </Box>
+                  <CellRow
+                    key={v._cid}
+                    label="Medida"
+                    onClick={() => navigate(`/config/productos/${id}/variantes/${v.id}`, { state: { variante: v, producto } })}
+                    first={i === 0}
+                    chevron
+                  >
+                    {/* Igual que valores de PRODUCTO: color y peso estándar */}
+                    <Typography variant="body1" sx={{ color: inputColor }}>
+                      {v.medida || '(sin medida)'}
+                    </Typography>
+                  </CellRow>
                 ))
               )}
+
               <Divider />
               <Box sx={{ px: 2, py: 1.25 }}>
                 <Button fullWidth variant="outlined" onClick={() => navigate(`/config/productos/${id}/variantes/nueva`)}>
