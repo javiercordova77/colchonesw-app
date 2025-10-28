@@ -2,71 +2,68 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Container, Box, Paper, Button,
-  Divider, Snackbar, Alert, InputBase, Switch, useTheme
+  Divider, Snackbar, Alert, Switch, useTheme
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import NavBack from '../../components/NavBack';
+import RightInputUncontrolled from '../../components/RightInputUncontrolled';
+import { saveVarianteDraft, consumeColorDraft } from '../../utils/drafts';
 
 const IOSSwitch = styled((props) => (
   <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
 ))(({ theme }) => ({
-  width: 64,           // más ancho
-  height: 30,          // un poco menos alto
+  width: 64,
+  height: 30,
   padding: 0,
   '& .MuiSwitch-switchBase': {
     padding: 0,
-    margin: 4,         // deja el thumb “dentro” del track
+    margin: 4,
     transitionDuration: '200ms',
     '&.Mui-checked': {
-      transform: 'translateX(24px)', // 64 - 32 - (4*2) = 24
+      transform: 'translateX(24px)',
       color: '#fff',
-      '& + .MuiSwitch-track': {
-        backgroundColor: '#34C759',  // ON
-        opacity: 1,
-        border: 0
-      }
-    },
-    '&.Mui-disabled .MuiSwitch-thumb': { color: theme.palette.grey[100] },
-    '&.Mui-disabled + .MuiSwitch-track': { opacity: 0.5 }
+      '& + .MuiSwitch-track': { backgroundColor: '#34C759', opacity: 1, border: 0 }
+    }
   },
   '& .MuiSwitch-thumb': {
     boxSizing: 'border-box',
-    width: 32,         // ovalado (más ancho que alto)
-    height: 22,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 9999,
-    boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
-    border: '1px solid rgba(0,0,0,0.06)'
+    width: 32, height: 22, backgroundColor: '#FFFFFF', borderRadius: 9999,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.25)', border: '1px solid rgba(0,0,0,0.06)'
   },
-  '& .MuiSwitch-track': {
-    borderRadius: 9999,
-    backgroundColor: '#E5E5EA',      // OFF
-    opacity: 1,
-    transition: theme.transitions.create(['background-color'], { duration: 200 })
-  }
+  '& .MuiSwitch-track': { borderRadius: 9999, backgroundColor: '#E5E5EA', opacity: 1 }
 }));
 
 export default function VariantesEditar() {
   const { id, idVariante } = useParams();
   const navigate = useNavigate();
-  const { state } = useLocation();
+  const location = useLocation();
   const theme = useTheme();
 
   const isNew = idVariante === 'nueva';
-  const varianteInit = state?.variante || {};
+  const varianteInit = location.state?.variante || {};
 
-  // Helpers visuales iguales a ProductosEditar
   const pageBg = '#f2f2f7';
   const cellRadius = 2;
   const cellShadow = '0 1px 2px rgba(0,0,0,0.06)';
   const labelColor = '#000';
   const valueColor = theme.palette.grey[700];
 
-  const CellRow = ({ label, children, first = false }) => (
+  const CellRow = ({ label, children, first = false, onClick }) => (
     <Box
+      onClick={onClick}
+      onMouseDownCapture={(e) => {
+        const t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) e.stopPropagation();
+      }}
+      onTouchStartCapture={(e) => {
+        const t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) e.stopPropagation();
+      }}
       sx={{
         display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.25,
-        borderTop: first ? 'none' : '1px solid', borderColor: 'divider'
+        borderTop: first ? 'none' : '1px solid', borderColor: 'divider',
+        cursor: onClick ? 'pointer' : 'default'
       }}
     >
       <Typography sx={{ flex: '0 0 180px', color: labelColor, fontWeight: 400 }}>
@@ -74,21 +71,9 @@ export default function VariantesEditar() {
       </Typography>
       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
         {children}
+        {onClick && <ChevronRightIcon sx={{ color: 'text.secondary' }} />}
       </Box>
     </Box>
-  );
-
-  const RightInput = (props) => (
-    <InputBase
-      {...props}
-      sx={{
-        textAlign: 'right',
-        color: valueColor,
-        '& input': { textAlign: 'right', padding: '6px 0' },
-        ...props.sx
-      }}
-      inputProps={{ ...props.inputProps, 'aria-label': props['aria-label'] || 'input' }}
-    />
   );
 
   const toDateInput = (v) => {
@@ -99,18 +84,7 @@ export default function VariantesEditar() {
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   };
 
-  const computeTotalStock = (v) => {
-    if (typeof v?.stock_total === 'number') return Number(v.stock_total) || 0;
-    if (Array.isArray(v?.stock_ubicaciones)) {
-      return v.stock_ubicaciones.reduce((acc, u) => acc + Number(u?.cantidad_disponible || 0), 0);
-    }
-    if (typeof v?.stock === 'number') return Number(v.stock) || 0;
-    if (v?.stock?.ubicaciones) {
-      return (v.stock.ubicaciones || []).reduce((a, u) => a + Number(u?.cantidad_disponible || 0), 0);
-    }
-    return 0;
-  };
-
+  // Estados locales (solo se actualizan en blur con onCommit)
   const [medida, setMedida] = useState(varianteInit.medida || '');
   const [codigo, setCodigo] = useState(varianteInit.codigo_variante || varianteInit.codigo || '');
   const [precioVenta, setPrecioVenta] = useState(
@@ -126,51 +100,70 @@ export default function VariantesEditar() {
     if (raw === 0 || raw === false || raw === '0') return false;
     return true;
   });
-
-  const [colores, setColores] = useState(() => (
-    Array.isArray(varianteInit.colores) ? varianteInit.colores : []
-  ));
-
-  const totalStock = useMemo(() => computeTotalStock(varianteInit), [varianteInit]);
-
+  const [colores, setColores] = useState(() => Array.isArray(varianteInit.colores) ? varianteInit.colores : []);
   const [error, setError] = useState('');
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' });
 
   const titulo = useMemo(() => medida || 'Variante', [medida]);
 
-  const onToggleActivo = (e, checked) => {
-    if (!checked && totalStock > 0) {
-      setSnack({ open: true, severity: 'warning', msg: 'No puedes desactivar la medida: tiene stock disponible.' });
-      return;
-    }
-    setActivo(checked);
-  };
+  const onToggleActivo = (_e, checked) => setActivo(checked);
 
   const onAgregarColor = () => {
-    setSnack({ open: true, severity: 'info', msg: 'Seleccionar color: pendiente de implementar.' });
+    navigate(`/config/productos/${id}/variantes/${idVariante}/colores/nuevo`, { state: { slide: 'left' } });
   };
 
+  // Al volver desde ColoresEditar, consumir el draft del color y aplicarlo al estado local
+  useEffect(() => {
+    const d = consumeColorDraft(id);
+    if (!d) return;
+    setColores(prev => {
+      const list = Array.isArray(prev) ? [...prev] : [];
+      const idx = Number.isInteger(d.index) ? d.index : -1;
+      const item = {
+        ...list[idx] || {},
+        id: d.id ?? list[idx]?.id ?? null,
+        color: d.nombre ?? d.color ?? list[idx]?.color ?? '',
+        nombre: d.nombre ?? list[idx]?.nombre ?? '',
+        codigo_color: d.codigo ?? d.codigo_color ?? list[idx]?.codigo_color ?? '',
+        codigo: d.codigo ?? list[idx]?.codigo ?? '',
+        activo: d.activo ?? list[idx]?.activo ?? true
+      };
+      if (idx >= 0 && idx < list.length) list[idx] = item;
+      else list.push(item);
+      return list;
+    });
+    setSnack({ open: true, severity: 'success', msg: 'Color aplicado (sin guardar)' });
+  }, [id, location.key]);
+
+  const toNumberOrNull = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(String(v).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // Aplicar: guardar borrador de variante (incluye colores) y volver al padre
   const onAplicar = () => {
-    const patch = {
-      id: isNew ? undefined : Number(idVariante),
-      medida: medida?.trim() || '',
-      codigo_variante: codigo?.trim() || '',
-      precio_venta: precioVenta === '' ? null : Number(String(precioVenta).replace(',', '.')),
-      precio_compra: precioCompra === '' ? null : Number(String(precioCompra).replace(',', '.')),
+    const toNumberOrNull = (v) => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = Number(String(v).replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    };
+    const payload = {
+      id: idVariante === 'nueva' ? null : Number(idVariante),
+      medida,
+      codigo_variante: codigo,
+      precio_venta: toNumberOrNull(precioVenta),
+      precio_compra: toNumberOrNull(precioCompra),
       fecha_ingreso: fechaIngreso || null,
-      activo: activo ? 1 : 0,
+      activo: !!activo,
       colores
     };
-
-    navigate(`/config/productos/${id}/editar`, {
-      replace: true,
-      state: { variantePatch: patch, slide: 'right' }
-    });
+    console.log('[SAVE VARIANTE DRAFT]', payload);
+    saveVarianteDraft(id, payload);
+    navigate(-1);
   };
 
-  useEffect(() => {
-    // Si necesitas cargar por idVariante desde backend, aquí iría.
-  }, [idVariante]);
+  useEffect(() => { /* cargar datos si aplica */ }, [idVariante]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
@@ -190,59 +183,58 @@ export default function VariantesEditar() {
       </AppBar>
 
       <Container maxWidth="md" sx={{ py: 2 }}>
-        {/* ESPECIFICACIONES */}
         <Typography variant="overline" sx={{ color: 'text.secondary', px: 1, letterSpacing: 0.6 }}>
           Especificaciones
         </Typography>
 
         <Paper elevation={0} sx={{ bgcolor: '#fff', borderRadius: cellRadius, boxShadow: cellShadow, overflow: 'hidden', mb: 2 }}>
           <CellRow label="Medida" first>
-            <RightInput value={medida} onChange={(e) => setMedida(e.target.value)} placeholder="Ej. 2 plazas" />
+            <RightInputUncontrolled
+              defaultValue={medida}
+              onCommit={(v) => setMedida(v)}
+              placeholder="Ej. 2 plazas"
+              inputMode="text"
+            />
           </CellRow>
           <CellRow label="Código variante">
-            <RightInput value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Ej. ABC-123" />
+            <RightInputUncontrolled
+              defaultValue={codigo}
+              onCommit={(v) => setCodigo(v)}
+              placeholder="Ej. ABC-123"
+              inputMode="text"
+            />
           </CellRow>
           <CellRow label="Precio venta">
-            <RightInput
-              value={precioVenta}
-              onChange={(e) => setPrecioVenta(e.target.value)}
+            <RightInputUncontrolled
+              defaultValue={precioVenta}
+              onCommit={(v) => setPrecioVenta(v)}
               placeholder="0.00"
-              inputProps={{ inputMode: 'decimal' }}
+              inputMode="decimal"
             />
           </CellRow>
           <CellRow label="Precio compra">
-            <RightInput
-              value={precioCompra}
-              onChange={(e) => setPrecioCompra(e.target.value)}
+            <RightInputUncontrolled
+              defaultValue={precioCompra}
+              onCommit={(v) => setPrecioCompra(v)}
               placeholder="0.00"
-              inputProps={{ inputMode: 'decimal' }}
+              inputMode="decimal"
             />
           </CellRow>
           <CellRow label="Fecha ingreso">
-            <RightInput
+            <RightInputUncontrolled
               type="date"
-              value={fechaIngreso}
-              onChange={(e) => setFechaIngreso(e.target.value)}
-              sx={{ minWidth: 180 }}
+              defaultValue={fechaIngreso}
+              onCommit={(v) => setFechaIngreso(v)}
             />
           </CellRow>
         </Paper>
 
-        {/* Activo (sin título de bloque) */}
         <Paper elevation={0} sx={{ bgcolor: '#fff', borderRadius: cellRadius, boxShadow: cellShadow, overflow: 'hidden', mb: 2 }}>
           <CellRow label="Activar Medida" first>
             <IOSSwitch checked={activo} onChange={onToggleActivo} />
           </CellRow>
-          {totalStock > 0 && (
-            <Box sx={{ px: 2, py: 1, pt: 0 }}>
-              <Typography variant="caption" color="text.secondary">
-                Nota: no se puede desactivar la medida si tiene stock disponible (stock actual: {totalStock}).
-              </Typography>
-            </Box>
-          )}
         </Paper>
 
-        {/* COLORES */}
         <Typography variant="overline" sx={{ color: 'text.secondary', px: 1, letterSpacing: 0.6 }}>
           Colores
         </Typography>
@@ -250,16 +242,31 @@ export default function VariantesEditar() {
         <Paper elevation={0} sx={{ bgcolor: '#fff', borderRadius: cellRadius, boxShadow: cellShadow, overflow: 'hidden', mb: 2 }}>
           {Array.isArray(colores) && colores.length > 0 ? (
             colores.map((c, i) => (
-              <Box
-                key={`${c.color || c.nombre || 'color'}-${i}`}
-                sx={{ borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider', px: 2, py: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}
+              <CellRow
+                key={`${c.id ?? i}`}
+                label={c.color || c.nombre || 'Color'}
+                onClick={() =>
+                  navigate(`/config/productos/${id}/variantes/${idVariante}/colores/${c.id ?? i}`, {
+                    state: { color: c, index: i, slide: 'left' }
+                  })
+                }
               >
-                <Typography sx={{ color: labelColor }}>{c.color || c.nombre || 'Color'}</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: 18, height: 18, borderRadius: 0.8, background: c.codigo_color || c.codigo || '#e0e0e0', border: '1px solid rgba(0,0,0,0.12)' }} />
-                  <Typography sx={{ color: valueColor }}>{c.codigo_color || c.codigo || '-'}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.0 }}>
+                  <Box
+                    sx={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 0.8,
+                      background: c.codigo_color || c.codigo || '#e0e0e0',
+                      border: '1px solid rgba(0,0,0,0.12)'
+                    }}
+                  />
+                  <Typography sx={{ color: valueColor, minWidth: 72, textAlign: 'right' }}>
+                    {c.codigo_color || c.codigo || '-'}
+                  </Typography>
+                  <ChevronRightIcon sx={{ color: 'text.secondary' }} />
                 </Box>
-              </Box>
+              </CellRow>
             ))
           ) : (
             <Box sx={{ px: 2, py: 2 }}>

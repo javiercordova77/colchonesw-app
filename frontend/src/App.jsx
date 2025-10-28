@@ -20,6 +20,7 @@ import ProductosEditar from './pages/config/ProductosEditar';
 import VariantesEditar from './pages/config/VariantesEditar';
 import SelectCategoria from './pages/config/SelectCategoria';
 import SelectProveedor from './pages/config/SelectProveedor';
+import ColoresEditar from './pages/config/ColoresEditar';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -61,6 +62,8 @@ function AnimatedRoutes() {
             <Route path="/config/productos/:id/editar" element={<ProductosEditar />} />
             <Route path="/config/productos/:id/variantes/nueva" element={<VariantesEditar />} />
             <Route path="/config/productos/:id/variantes/:idVariante" element={<VariantesEditar />} />
+            <Route path="/config/productos/:id/variantes/:idVariante/colores/nuevo" element={<ColoresEditar />} />
+            <Route path="/config/productos/:id/variantes/:idVariante/colores/:idColor" element={<ColoresEditar />} />
             <Route path="/config/productos/:id/seleccionar-categoria" element={<SelectCategoria />} />
             <Route path="/config/productos/:id/seleccionar-proveedor" element={<SelectProveedor />} />
             <Route path="/qr" element={<Qr />} />

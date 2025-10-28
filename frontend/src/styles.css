@@ -88,3 +88,19 @@ html, body, #root {
   .preview-box { width: 88vw; height: 60vw; }
   .scan-button { width: 88vw; }
 }
+
+/* Opcional: Control Input para los contenedores */
+.cw-right-input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: right;
+  padding: 6px 0;
+  appearance: none;         /* estándar */
+  -webkit-appearance: none; /* iOS Safari */
+  /* opcional: corrige bordes redondeados por defecto en iOS */
+  border-radius: 0;
+}

@@ -1,60 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, List, ListItemButton, ListItemText,
   CircularProgress, Box, Snackbar, Alert, IconButton, Button
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { fetchProductoEdicion } from '../../api';
+
+const normId = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+const sameId = (a, b) => String(a) === String(b);
 
 export default function SelectProveedor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const preselect = location.state?.currentId ?? null;
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [provs, setProvs] = useState([]);
+  const preselect = normId(location.state?.currentId ?? null);
+  const items = useMemo(
+    () => (Array.isArray(location.state?.list) ? location.state.list : []),
+    [location.state?.list]
+  );
 
-  const normId = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
-  const sameId = (a, b) => String(a) === String(b);
-
-  const [selectedId, setSelectedId] = useState(() => normId(preselect));
+  const [selectedId, setSelectedId] = useState(preselect);
+  const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const d = await fetchProductoEdicion(id);
-        setProvs(d?.lookups?.proveedores || []);
-      } catch (e) {
-        console.error('[SelectProveedor] load error:', e);
-        setError('No se pudieron cargar proveedores');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [id]);
+    console.log('[SelectProveedor] mount state:', location.state);
+    if (!items.length) {
+      console.warn('[SelectProveedor] no hay list en location.state; verifica openSelectProveedor()');
+    } else {
+      console.log('[SelectProveedor] proveedores recibidos:', items.length, 'preselect:', preselect);
+    }
+  }, [items.length, preselect, location.state]);
 
-  const pick = (pv) => {
-    const pickedId = normId(pv.id ?? pv.id_proveedor ?? pv.idProveedor);
-    setSelectedId(pickedId); // Solo marcar, el usuario decide cuándo volver
-    console.log('[SelectProveedor] pick (marcado):', { pickedId });
+  const onPick = (p) => {
+    const pickedId = normId(p.id ?? p.id_proveedor ?? p.idProveedor);
+    setSelectedId(pickedId);
+    console.log('[SelectProveedor] pick (solo marcado):', { pickedId });
   };
 
   const handleBack = () => {
-    if (selectedId != null && !sameId(selectedId, preselect)) {
-      navigate(`/config/productos/${id}/editar`, {
-        replace: true,
-        state: { pick: { tipo: 'proveedor', id: selectedId }, slide: 'right' }
-      });
-    } else {
-      navigate(-1);
-    }
+    console.log('[SelectProveedor] back pressed', { selectedId, preselect, willApply: false });
+    navigate(-1);
   };
 
   const handleApply = () => {
-    if (selectedId == null || sameId(selectedId, preselect)) {
+    const willApply = selectedId != null && !sameId(selectedId, preselect);
+    console.log('[SelectProveedor] apply pressed', { selectedId, preselect, willApply });
+    if (!willApply) {
       navigate(-1);
       return;
     }
@@ -84,21 +77,26 @@ export default function SelectProveedor() {
         <Box sx={{ py: 6, textAlign: 'center' }}><CircularProgress /></Box>
       ) : (
         <List sx={{ bgcolor: '#fff' }}>
-          {provs.map((p) => {
+          {items.map((p) => {
             const pid = p.id ?? p.id_proveedor ?? p.idProveedor;
             const isSel = selectedId != null && sameId(pid, selectedId);
             return (
-              <ListItemButton key={pid} onClick={() => pick(p)}>
+              <ListItemButton key={pid} onClick={() => onPick(p)}>
                 <ListItemText primary={p.nombre} />
                 {isSel && <span style={{ color: 'var(--mui-palette-primary-main)' }}>✓</span>}
               </ListItemButton>
             );
           })}
+          {!items.length && (
+            <Box sx={{ px: 2, py: 2 }}>
+              <Typography variant="body2" color="text.secondary">Sin proveedores.</Typography>
+            </Box>
+          )}
         </List>
       )}
 
-      <Snackbar open={!!error} autoHideDuration={4000} onClose={() => setError('')}>
-        <Alert severity="error" onClose={() => setError('')}>{error}</Alert>
+      <Snackbar open={snack.open} autoHideDuration={2500} onClose={() => setSnack(s => ({ ...s, open: false }))}>
+        <Alert severity={snack.severity} onClose={() => setSnack(s => ({ ...s, open: false }))}>{snack.msg}</Alert>
       </Snackbar>
     </Box>
   );

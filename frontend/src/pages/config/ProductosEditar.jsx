@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Container, Box, Paper, Button,
-  Divider, CircularProgress, Snackbar, Alert, InputBase, useTheme
+  Divider, CircularProgress, Snackbar, Alert, useTheme
 } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { fetchProductoEdicion, updateProducto } from '../../api';
 import NavBack from '../../components/NavBack';
+import RightInputUncontrolled from '../../components/RightInputUncontrolled';
+import { focusHandlers, logMount, logRender } from '../../utils/focusDebug';
+import { fetchProductoEdicion, updateProducto } from '../../api';
+import { consumeVarianteDraft, clearAllDraftsForProducto } from '../../utils/drafts';
 
 export default function ProductosEditar() {
   const { id } = useParams();
@@ -14,6 +17,15 @@ export default function ProductosEditar() {
   const theme = useTheme();
   const location = useLocation();
 
+  // Logs de render y montaje
+  const renderRef = useRef(0);
+  logRender('ProductosEditar', renderRef);
+  useEffect(() => logMount('ProductosEditar'), []);
+  useEffect(() => {
+    console.log('[LOCATION]', location.pathname, location.state);
+  }, [location.pathname, location.state]);
+
+  // Estado base
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -23,10 +35,13 @@ export default function ProductosEditar() {
   const [producto, setProducto] = useState(null);
   const [variantes, setVariantes] = useState([]);
 
+  // Para rollback si el usuario sale sin guardar
+  const savedRef = useRef(false);
+
   // Helpers
   const normId = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
-  const sameId = (a, b) => String(a) === String(b);
 
+  // Carga de datos
   const load = async () => {
     setError(''); setLoading(true);
     try {
@@ -39,7 +54,6 @@ export default function ProductosEditar() {
       setData(d);
       setProducto(p);
       setVariantes((d.variantes || []).map(v => ({ ...v, _cid: `v-${v.id}` })));
-      console.log('[ProductosEditar] load ok', { p, variantes: (d.variantes || []).length });
     } catch (e) {
       console.error('[ProductosEditar] load error:', e);
       setError('No se pudo cargar datos de edición.');
@@ -48,55 +62,70 @@ export default function ProductosEditar() {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => { load(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [id]);
 
-  // Aplica la selección recibida desde SelectCategoria/Proveedor vía location.state.pick
-  const pickAppliedRef = useRef(false);
+  // Consumir draft de variante cuando regresamos desde VariantesEditar
   useEffect(() => {
-    if (loading || !producto) return;
+    const d = consumeVarianteDraft(id);
+    if (!d) return;
+    console.log('[DRAFT VARIANTE FOUND]', d);
+    setVariantes(prev => {
+      const list = Array.isArray(prev) ? [...prev] : [];
+      if (d.id != null) {
+        const idx = list.findIndex(x => String(x.id) === String(d.id));
+        if (idx >= 0) list[idx] = { ...list[idx], ...d, _cid: list[idx]._cid || `v-${d.id}` };
+        else list.push({ ...d, _cid: `v-${d.id}` });
+      } else {
+        list.push({ ...d, _cid: `v-new-${Date.now()}` });
+      }
+      return list;
+    });
+    setSnack({ open: true, severity: 'success', msg: 'Cambios de variante aplicados (sin guardar)' });
+  }, [location.key, id]);
 
+  // PICK: estacionar y aplicar cuando corresponda (evita que el fetch lo pise)
+  const pendingPickRef = useRef(null);
+
+  const applyPick = (pickToApply) => {
+    if (!pickToApply) return;
+    console.log('[PICK RECEIVED]', pickToApply, 'producto antes:', producto);
+    const pickedId = pickToApply.id === '' || pickToApply.id == null ? null : Number(pickToApply.id);
+    setProducto(prev => {
+      if (!prev) return prev;
+      const updated =
+        pickToApply.tipo === 'categoria'
+          ? { ...prev, id_categoria: pickedId }
+          : pickToApply.tipo === 'proveedor'
+          ? { ...prev, id_proveedor: pickedId }
+          : prev;
+      console.log('[PICK APPLIED]', { tipo: pickToApply.tipo, pickedId, productoDespues: updated });
+      return updated;
+    });
+  };
+
+  // Llega pick desde SelectCategoria/SelectProveedor -> estacionar y aplicar si ya hay producto
+  useEffect(() => {
     const pick = location.state?.pick;
-    if (!pick || pickAppliedRef.current) return;
+    if (!pick) return;
+    pendingPickRef.current = pick;
+    console.log('[PICK STAGED]', pick);
 
-    const pickedId = normId(pick.id);
-    if (pick.tipo === 'categoria') {
-      setProducto(prev => ({ ...prev, id_categoria: pickedId }));
-      console.log('[ProductosEditar] categoría aplicada:', pickedId);
-    } else if (pick.tipo === 'proveedor') {
-      setProducto(prev => ({ ...prev, id_proveedor: pickedId }));
-      console.log('[ProductosEditar] proveedor aplicado:', pickedId);
+    if (producto) {
+      applyPick(pick);
+      const { pick: _omit, ...rest } = location.state || {};
+      navigate(location.pathname, { replace: true, state: rest });
+      pendingPickRef.current = null;
     }
-    // No navegamos para "limpiar" el state; evitamos remounts y bucles
-    pickAppliedRef.current = true;
-  }, [loading, producto, location.state]);
+  }, [location.state?.pick]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const titulo = useMemo(() => producto?.descripcion || 'Producto', [producto]);
-
-  const onSave = async () => {
-    if (!producto) return;
-    setSaving(true); setError('');
-    try {
-      await updateProducto(id, { producto, variantes });
-      setSnack({ open: true, msg: 'Guardado', severity: 'success' });
-      navigate(`/config/productos/${id}/variantes`, { replace: true });
-    } catch (e) {
-      console.error('[ProductosEditar] save:', e);
-      setError('No se pudo guardar cambios.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const openSelectCategoria = () => {
-    navigate(`/config/productos/${id}/seleccionar-categoria`, {
-      state: { currentId: producto?.id_categoria ?? null, slide: 'left' }
-    });
-  };
-  const openSelectProveedor = () => {
-    navigate(`/config/productos/${id}/seleccionar-proveedor`, {
-      state: { currentId: producto?.id_proveedor ?? null, slide: 'left' }
-    });
-  };
+  // Cuando termina de cargar el producto, si hay pick pendiente, aplicarlo y limpiar del state
+  useEffect(() => {
+    if (!producto || !pendingPickRef.current) return;
+    applyPick(pendingPickRef.current);
+    const { pick: _omit, ...rest } = location.state || {};
+    navigate(location.pathname, { replace: true, state: rest });
+    pendingPickRef.current = null;
+  }, [producto]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Estilos
   const pageBg = '#f2f2f7';
@@ -105,9 +134,18 @@ export default function ProductosEditar() {
   const labelColor = '#000';
   const inputColor = theme.palette.grey[700];
 
+  // Fila tipo iOS con protección de eventos
   const CellRow = ({ label, children, chevron = false, onClick, first = false }) => (
     <Box
       onClick={onClick}
+      onMouseDownCapture={(e) => {
+        const t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) e.stopPropagation();
+      }}
+      onTouchStartCapture={(e) => {
+        const t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) e.stopPropagation();
+      }}
       sx={{
         display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.25,
         cursor: onClick ? 'pointer' : 'default',
@@ -125,13 +163,70 @@ export default function ProductosEditar() {
     </Box>
   );
 
-  const RightInput = (props) => (
-    <InputBase
-      {...props}
-      sx={{ textAlign: 'right', color: inputColor, '& input': { textAlign: 'right', padding: '6px 0' }, ...props.sx }}
-      inputProps={{ ...props.inputProps, 'aria-label': props['aria-label'] || 'input' }}
-    />
-  );
+  // Debug de foco/nodo para "Descripción" (opcional)
+  const descRef = useRef(null);
+  const prevNodeRef = useRef(null);
+  useEffect(() => {
+    if (prevNodeRef.current && prevNodeRef.current !== descRef.current) {
+      console.log('[NODE REPLACED] descripcion input', {
+        was: prevNodeRef.current,
+        now: descRef.current,
+        active: document.activeElement?.tagName
+      });
+    }
+    prevNodeRef.current = descRef.current;
+  });
+  const descFH = focusHandlers('Producto.descripcion');
+
+  // Título estable
+  const titulo = useMemo(() => producto?.descripcion || 'Producto', [producto]);
+
+  // Navegación a selects (pasando la lista para filtro local)
+  const openSelectCategoria = () => {
+    navigate(`/config/productos/${id}/seleccionar-categoria`, {
+      state: {
+        currentId: producto?.id_categoria ?? null,
+        list: data?.lookups?.categorias ?? [],
+        slide: 'left'
+      }
+    });
+  };
+  const openSelectProveedor = () => {
+    navigate(`/config/productos/${id}/seleccionar-proveedor`, {
+      state: {
+        currentId: producto?.id_proveedor ?? null,
+        list: data?.lookups?.proveedores ?? [],
+        slide: 'left'
+      }
+    });
+  };
+
+  // Guardar definitivo (commit) y limpiar drafts
+  const onSave = async () => {
+    if (!producto) return;
+    setSaving(true); setError('');
+    try {
+      await updateProducto(id, { producto, variantes }); // único punto que toca la base
+      savedRef.current = true;
+      clearAllDraftsForProducto(id); // limpiar borradores al confirmar
+      setSnack({ open: true, msg: 'Guardado', severity: 'success' });
+      navigate(`/config/productos/${id}/variantes`, { replace: true });
+    } catch (e) {
+      console.error('[ProductosEditar] save:', e);
+      setError('No se pudo guardar cambios.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Si el usuario sale sin guardar, descarta drafts (rollback)
+  useEffect(() => {
+    return () => {
+      if (!savedRef.current) {
+        clearAllDraftsForProducto(id);
+      }
+    };
+  }, [id]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
@@ -164,27 +259,47 @@ export default function ProductosEditar() {
 
             <Paper elevation={0} sx={{ bgcolor: '#fff', borderRadius: cellRadius, boxShadow: cellShadow, overflow: 'hidden', mb: 2 }}>
               <CellRow label="Descripción" first>
-                <RightInput value={producto.descripcion || ''} onChange={(e) => setProducto({ ...producto, descripcion: e.target.value })} placeholder="Ej. Colchón Imperial" />
+                <RightInputUncontrolled
+                  key={`desc-${producto?.id ?? 'new'}`}
+                  ref={descRef}
+                  {...descFH}
+                  defaultValue={producto.descripcion || ''}
+                  onCommit={(v) => setProducto(prev => prev ? ({ ...prev, descripcion: v }) : prev)}
+                  placeholder="Ej. Colchón Imperial"
+                  inputMode="text"
+                />
               </CellRow>
               <CellRow label="Material">
-                <RightInput value={producto.material || ''} onChange={(e) => setProducto({ ...producto, material: e.target.value })} placeholder="Ej. resortes" />
+                <RightInputUncontrolled
+                  key={`mat-${producto?.id ?? 'new'}`}
+                  defaultValue={producto.material || ''}
+                  onCommit={(v) => setProducto(prev => prev ? ({ ...prev, material: v }) : prev)}
+                  placeholder="Ej. resortes"
+                  inputMode="text"
+                />
               </CellRow>
               <CellRow label="Categoría" chevron onClick={openSelectCategoria}>
                 <Typography sx={{ color: inputColor }}>
                   {(data?.lookups?.categorias || [])
-                    .find(c => sameId((c.id ?? c.id_categoria ?? c.idCategoria), producto.id_categoria))
+                    .find(c => String((c.id ?? c.id_categoria ?? c.idCategoria)) === String(producto.id_categoria))
                     ?.nombre || 'Selecciona'}
                 </Typography>
               </CellRow>
               <CellRow label="Proveedor" chevron onClick={openSelectProveedor}>
                 <Typography sx={{ color: inputColor }}>
                   {(data?.lookups?.proveedores || [])
-                    .find(p => sameId((p.id ?? p.id_proveedor ?? p.idProveedor), producto.id_proveedor))
+                    .find(p => String((p.id ?? p.id_proveedor ?? p.idProveedor)) === String(producto.id_proveedor))
                     ?.nombre || 'Selecciona'}
                 </Typography>
               </CellRow>
               <CellRow label="Imagen (ruta)">
-                <RightInput value={producto.imagen || ''} onChange={(e) => setProducto({ ...producto, imagen: e.target.value })} placeholder="productos/colchones/chaideimperial.png" />
+                <RightInputUncontrolled
+                  key={`img-${producto?.id ?? 'new'}`}
+                  defaultValue={producto.imagen || ''}
+                  onCommit={(v) => setProducto(prev => prev ? ({ ...prev, imagen: v }) : prev)}
+                  placeholder="productos/colchones/chaideimperial.png"
+                  inputMode="text"
+                />
               </CellRow>
             </Paper>
 
@@ -201,13 +316,12 @@ export default function ProductosEditar() {
               ) : (
                 variantes.map((v, i) => (
                   <CellRow
-                    key={v._cid}
+                    key={v._cid || v.id || i}
                     label="Medida"
-                    onClick={() => navigate(`/config/productos/${id}/variantes/${v.id}`, { state: { variante: v, producto } })}
+                    onClick={() => navigate(`/config/productos/${id}/variantes/${v.id ?? 'nueva'}`, { state: { variante: v, producto, slide: 'left' } })}
                     first={i === 0}
                     chevron
                   >
-                    {/* Igual que valores de PRODUCTO: color y peso estándar */}
                     <Typography variant="body1" sx={{ color: inputColor }}>
                       {v.medida || '(sin medida)'}
                     </Typography>
@@ -217,7 +331,11 @@ export default function ProductosEditar() {
 
               <Divider />
               <Box sx={{ px: 2, py: 1.25 }}>
-                <Button fullWidth variant="outlined" onClick={() => navigate(`/config/productos/${id}/variantes/nueva`)}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => navigate(`/config/productos/${id}/variantes/nueva`, { state: { slide: 'left' } })}
+                >
                   + Agregar variante
                 </Button>
               </Box>
@@ -229,7 +347,7 @@ export default function ProductosEditar() {
       <Snackbar open={!!error} autoHideDuration={5000} onClose={() => setError('')}>
         <Alert severity="error" onClose={() => setError('')}>{error}</Alert>
       </Snackbar>
-      <Snackbar open={snack.open} autoHideDuration={2000} onClose={() => setSnack(s => ({ ...s, open: false }))}>
+      <Snackbar open={snack.open} autoHideDuration={2200} onClose={() => setSnack(s => ({ ...s, open: false }))}>
         <Alert severity={snack.severity} onClose={() => setSnack(s => ({ ...s, open: false }))}>{snack.msg}</Alert>
       </Snackbar>
     </Box>
