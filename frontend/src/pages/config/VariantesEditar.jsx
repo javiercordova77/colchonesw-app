@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Container, Box, Paper, Button,
@@ -8,7 +8,8 @@ import { styled } from '@mui/material/styles';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import NavBack from '../../components/NavBack';
 import RightInputUncontrolled from '../../components/RightInputUncontrolled';
-import { saveVarianteDraft, consumeColorDraft } from '../../utils/drafts';
+// Opcional: deja el draft por compatibilidad, pero ya no es necesario si usas pick
+import { consumeColorDraft } from '../../utils/drafts';
 
 const IOSSwitch = styled((props) => (
   <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
@@ -84,7 +85,7 @@ export default function VariantesEditar() {
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   };
 
-  // Estados locales (solo se actualizan en blur con onCommit)
+  // Estados locales (solo se consolidan al pulsar Aplicar en esta pantalla)
   const [medida, setMedida] = useState(varianteInit.medida || '');
   const [codigo, setCodigo] = useState(varianteInit.codigo_variante || varianteInit.codigo || '');
   const [precioVenta, setPrecioVenta] = useState(
@@ -105,35 +106,10 @@ export default function VariantesEditar() {
   const [snack, setSnack] = useState({ open: false, msg: '', severity: 'info' });
 
   const titulo = useMemo(() => medida || 'Variante', [medida]);
-
   const onToggleActivo = (_e, checked) => setActivo(checked);
-
   const onAgregarColor = () => {
     navigate(`/config/productos/${id}/variantes/${idVariante}/colores/nuevo`, { state: { slide: 'left' } });
   };
-
-  // Al volver desde ColoresEditar, consumir el draft del color y aplicarlo al estado local
-  useEffect(() => {
-    const d = consumeColorDraft(id);
-    if (!d) return;
-    setColores(prev => {
-      const list = Array.isArray(prev) ? [...prev] : [];
-      const idx = Number.isInteger(d.index) ? d.index : -1;
-      const item = {
-        ...list[idx] || {},
-        id: d.id ?? list[idx]?.id ?? null,
-        color: d.nombre ?? d.color ?? list[idx]?.color ?? '',
-        nombre: d.nombre ?? list[idx]?.nombre ?? '',
-        codigo_color: d.codigo ?? d.codigo_color ?? list[idx]?.codigo_color ?? '',
-        codigo: d.codigo ?? list[idx]?.codigo ?? '',
-        activo: d.activo ?? list[idx]?.activo ?? true
-      };
-      if (idx >= 0 && idx < list.length) list[idx] = item;
-      else list.push(item);
-      return list;
-    });
-    setSnack({ open: true, severity: 'success', msg: 'Color aplicado (sin guardar)' });
-  }, [id, location.key]);
 
   const toNumberOrNull = (v) => {
     if (v === null || v === undefined || v === '') return null;
@@ -141,15 +117,80 @@ export default function VariantesEditar() {
     return Number.isFinite(n) ? n : null;
   };
 
-  // Aplicar: guardar borrador de variante (incluye colores) y volver al padre
+  // PICK de ColoresEditar: estacionar y aplicar one-shot
+  const pendingPickRef = useRef(null);
+
+  const applyPick = (pick) => {
+    if (!pick) return;
+    if (pick.tipo === 'color' || pick.tipo === 'colores') {
+      console.log('[COLOR PICK RECEIVED]', pick);
+
+      // Caso lista completa
+      if (pick.tipo === 'colores' && Array.isArray(pick.colores)) {
+        setColores(pick.colores);
+        console.log('[COLOR PICK APPLIED] set full list:', pick.colores.length);
+        return;
+      }
+
+      // Caso un color individual
+      const incoming = pick.color || {};
+      const idxFromState = Number.isInteger(pick.index) ? pick.index : -1;
+
+      setColores(prev => {
+        const list = Array.isArray(prev) ? [...prev] : [];
+        // buscar por índice preferente; si no, por id
+        let idx = idxFromState;
+        if (!(idx >= 0 && idx < list.length)) {
+          if (incoming.id != null) {
+            idx = list.findIndex(x => String(x.id) === String(incoming.id));
+          }
+        }
+        const item = {
+          ...(idx >= 0 ? list[idx] : {}),
+          ...incoming
+        };
+        if (idx >= 0 && idx < list.length) {
+          list[idx] = item;
+          console.log('[COLOR PICK APPLIED][update]', { idx, item });
+        } else {
+          list.push(item);
+          console.log('[COLOR PICK APPLIED][insert]', item);
+        }
+        return list;
+      });
+      return;
+    }
+  };
+
+  // Llega pick desde ColoresEditar -> aplicar y limpiar del history.state (one-shot)
+  useEffect(() => {
+    const pick = location.state?.pick;
+    if (!pick) return;
+    pendingPickRef.current = pick;
+    console.log('[COLOR PICK STAGED]', pick);
+
+    applyPick(pick);
+    const { pick: _omit, ...rest } = location.state || {};
+    navigate(location.pathname, { replace: true, state: rest });
+    pendingPickRef.current = null;
+  }, [location.state?.pick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compatibilidad: si aún usas drafts para colores, se consumen también
+  useEffect(() => {
+    const d = consumeColorDraft(id);
+    if (!d) return;
+    console.log('[COLOR DRAFT FOUND]', d);
+    const pickFromDraft = { tipo: 'color', color: d, index: Number.isInteger(d.index) ? d.index : undefined };
+    applyPick(pickFromDraft);
+    setSnack({ open: true, severity: 'success', msg: 'Color aplicado (sin guardar)' });
+  }, [id, location.key]);
+
+  // Aplicar variante: enviar pick al padre ProductosEditar (igual a SelectCategoria/Proveedor)
   const onAplicar = () => {
-    const toNumberOrNull = (v) => {
-      if (v === null || v === undefined || v === '') return null;
-      const n = Number(String(v).replace(',', '.'));
-      return Number.isFinite(n) ? n : null;
-    };
     const payload = {
-      id: idVariante === 'nueva' ? null : Number(idVariante),
+      id: isNew ? null : Number(idVariante),
+      // enviar _cid para que el padre actualice y no inserte duplicado si aún no hay id
+      _cid: (location.state?.variante && location.state.variante._cid) || (varianteInit && varianteInit._cid) || null,
       medida,
       codigo_variante: codigo,
       precio_venta: toNumberOrNull(precioVenta),
@@ -158,12 +199,16 @@ export default function VariantesEditar() {
       activo: !!activo,
       colores
     };
-    console.log('[SAVE VARIANTE DRAFT]', payload);
-    saveVarianteDraft(id, payload);
-    navigate(-1);
+    console.log('[VARIANTE/APLICAR] -> navigate with pick', { productoId: id, idVariante, payload });
+
+    // Volver al padre con pick (one-shot). El padre aplica y limpia state.pick.
+    navigate(`/config/productos/${id}/editar`, {
+      replace: true,
+      state: { pick: { tipo: 'variante', variante: payload }, slide: 'right' }
+    });
   };
 
-  useEffect(() => { /* cargar datos si aplica */ }, [idVariante]);
+  useEffect(() => { /* carga adicional si aplica */ }, [idVariante]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
@@ -264,7 +309,7 @@ export default function VariantesEditar() {
                   <Typography sx={{ color: valueColor, minWidth: 72, textAlign: 'right' }}>
                     {c.codigo_color || c.codigo || '-'}
                   </Typography>
-                  <ChevronRightIcon sx={{ color: 'text.secondary' }} />
+                  {/* ChevronRightIcon duplicado eliminado; CellRow ya lo renderiza al tener onClick */}
                 </Box>
               </CellRow>
             ))
@@ -281,6 +326,7 @@ export default function VariantesEditar() {
             </Button>
           </Box>
         </Paper>
+        
       </Container>
 
       <Snackbar open={!!error} autoHideDuration={5000} onClose={() => setError('')}>

@@ -17,7 +17,7 @@ export default function ProductosEditar() {
   const theme = useTheme();
   const location = useLocation();
 
-  // Logs de render y montaje
+  // Logs
   const renderRef = useRef(0);
   logRender('ProductosEditar', renderRef);
   useEffect(() => logMount('ProductosEditar'), []);
@@ -35,7 +35,7 @@ export default function ProductosEditar() {
   const [producto, setProducto] = useState(null);
   const [variantes, setVariantes] = useState([]);
 
-  // Para rollback si el usuario sale sin guardar
+  // Rollback si sale sin guardar
   const savedRef = useRef(false);
 
   // Helpers
@@ -64,7 +64,7 @@ export default function ProductosEditar() {
 
   useEffect(() => { load(); /* eslint-disable-line react-hooks/exhaustive-deps */ }, [id]);
 
-  // Consumir draft de variante cuando regresamos desde VariantesEditar
+  // Consumir draft de variante (desde VariantesEditar con draft)
   useEffect(() => {
     const d = consumeVarianteDraft(id);
     if (!d) return;
@@ -83,27 +83,63 @@ export default function ProductosEditar() {
     setSnack({ open: true, severity: 'success', msg: 'Cambios de variante aplicados (sin guardar)' });
   }, [location.key, id]);
 
-  // PICK: estacionar y aplicar cuando corresponda (evita que el fetch lo pise)
+  // PICK: estacionar y aplicar (evita que el fetch pise cambios)
   const pendingPickRef = useRef(null);
 
   const applyPick = (pickToApply) => {
     if (!pickToApply) return;
-    console.log('[PICK RECEIVED]', pickToApply, 'producto antes:', producto);
-    const pickedId = pickToApply.id === '' || pickToApply.id == null ? null : Number(pickToApply.id);
-    setProducto(prev => {
-      if (!prev) return prev;
-      const updated =
-        pickToApply.tipo === 'categoria'
-          ? { ...prev, id_categoria: pickedId }
-          : pickToApply.tipo === 'proveedor'
-          ? { ...prev, id_proveedor: pickedId }
-          : prev;
-      console.log('[PICK APPLIED]', { tipo: pickToApply.tipo, pickedId, productoDespues: updated });
-      return updated;
-    });
+    console.log('[PICK RECEIVED]', pickToApply, { productoBefore: producto, variantesLenBefore: variantes.length });
+
+    // Categoría / Proveedor
+    if (pickToApply.tipo === 'categoria' || pickToApply.tipo === 'proveedor') {
+      const pickedId = pickToApply.id === '' || pickToApply.id == null ? null : Number(pickToApply.id);
+      setProducto(prev => {
+        if (!prev) return prev;
+        const updated =
+          pickToApply.tipo === 'categoria'
+            ? { ...prev, id_categoria: pickedId }
+            : { ...prev, id_proveedor: pickedId };
+        console.log('[PICK APPLIED producto]', { tipo: pickToApply.tipo, pickedId, productoAfter: updated });
+        return updated;
+      });
+      return;
+    }
+
+    // Variante (actualiza por id o _cid; inserta solo si no existe)
+    if (pickToApply.tipo === 'variante') {
+      const v = pickToApply.variante || {};
+      setVariantes(prev => {
+        const list = Array.isArray(prev) ? [...prev] : [];
+        const before = list.length;
+
+        let idx = -1;
+        if (v.id != null) {
+          idx = list.findIndex(x => String(x.id) === String(v.id));
+        }
+        if (idx < 0 && v._cid) {
+          idx = list.findIndex(x => x._cid === v._cid);
+        }
+
+        if (idx >= 0) {
+          const merged = { ...list[idx], ...v, _cid: list[idx]._cid || v._cid || `v-new-${Date.now()}` };
+          list[idx] = merged;
+          console.log('[PICK APPLIED variante][update]', { idx, merged });
+        } else {
+          const _cid = v._cid || `v-new-${Date.now()}`;
+          list.push({ ...v, _cid });
+          console.log('[PICK APPLIED variante][insert]', { _cid });
+        }
+
+        console.log('[PICK APPLIED variantes]', { before, after: list.length });
+        return list;
+      });
+      return;
+    }
+
+    console.warn('[PICK tipo desconocido]', pickToApply);
   };
 
-  // Llega pick desde SelectCategoria/SelectProveedor -> estacionar y aplicar si ya hay producto
+  // Llega pick desde hijos -> estacionar y aplicar si ya hay producto
   useEffect(() => {
     const pick = location.state?.pick;
     if (!pick) return;
@@ -118,9 +154,10 @@ export default function ProductosEditar() {
     }
   }, [location.state?.pick]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cuando termina de cargar el producto, si hay pick pendiente, aplicarlo y limpiar del state
+  // Tras cargar producto, aplicar pick pendiente (si lo hay)
   useEffect(() => {
     if (!producto || !pendingPickRef.current) return;
+    console.log('[PICK APPLY AFTER LOAD]', pendingPickRef.current);
     applyPick(pendingPickRef.current);
     const { pick: _omit, ...rest } = location.state || {};
     navigate(location.pathname, { replace: true, state: rest });
@@ -134,7 +171,7 @@ export default function ProductosEditar() {
   const labelColor = '#000';
   const inputColor = theme.palette.grey[700];
 
-  // Fila tipo iOS con protección de eventos
+  // Fila UI
   const CellRow = ({ label, children, chevron = false, onClick, first = false }) => (
     <Box
       onClick={onClick}
@@ -163,7 +200,7 @@ export default function ProductosEditar() {
     </Box>
   );
 
-  // Debug de foco/nodo para "Descripción" (opcional)
+  // Debug de foco/nodo para "Descripción"
   const descRef = useRef(null);
   const prevNodeRef = useRef(null);
   useEffect(() => {
@@ -178,10 +215,10 @@ export default function ProductosEditar() {
   });
   const descFH = focusHandlers('Producto.descripcion');
 
-  // Título estable
+  // Título
   const titulo = useMemo(() => producto?.descripcion || 'Producto', [producto]);
 
-  // Navegación a selects (pasando la lista para filtro local)
+  // Navegación a selects (pasa lista y currentId)
   const openSelectCategoria = () => {
     navigate(`/config/productos/${id}/seleccionar-categoria`, {
       state: {
@@ -201,14 +238,14 @@ export default function ProductosEditar() {
     });
   };
 
-  // Guardar definitivo (commit) y limpiar drafts
+  // Guardar definitivo
   const onSave = async () => {
     if (!producto) return;
     setSaving(true); setError('');
     try {
-      await updateProducto(id, { producto, variantes }); // único punto que toca la base
+      await updateProducto(id, { producto, variantes });
       savedRef.current = true;
-      clearAllDraftsForProducto(id); // limpiar borradores al confirmar
+      clearAllDraftsForProducto(id);
       setSnack({ open: true, msg: 'Guardado', severity: 'success' });
       navigate(`/config/productos/${id}/variantes`, { replace: true });
     } catch (e) {
@@ -219,7 +256,7 @@ export default function ProductosEditar() {
     }
   };
 
-  // Si el usuario sale sin guardar, descarta drafts (rollback)
+  // Salida sin guardar -> limpiar drafts
   useEffect(() => {
     return () => {
       if (!savedRef.current) {
